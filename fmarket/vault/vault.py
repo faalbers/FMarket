@@ -1,3 +1,18 @@
+from .catalog import Catalog
+
+from pprint import pp
+
 class Vault():
     def __init__(self):
-        pass
+        self.catalog = Catalog()
+
+    def get_data(self, catalog, key_values=[]):
+        catalog = self.catalog.get(catalog)
+
+        data = {}
+        for scraper_class, scraper_data in catalog.items():
+            scraper = scraper_class()
+            for data_name, columns in scraper_data.items():
+                data[data_name], data[data_name + '_db_timestamp'] = scraper.get_vault_data(data_name, columns, key_values)
+        return data
+    

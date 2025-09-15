@@ -1,1 +1,5 @@
 /.venv
+/data
+/database
+__pycache__
+*.log
