@@ -6,7 +6,6 @@ class Tickers():
         self.vault = Vault()
         self.__make_symbols(symbols)
         self.empty = self.__symbols.empty
-        print(self.__symbols)
 
     def __make_symbols(self, symbols):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
@@ -28,15 +27,18 @@ class Tickers():
                 how='outer', left_index=True, right_index=True, suffixes=('_stocklist', '_tickers'))
             
             # consolidate sub_type
-            self.__symbols['sub_type'] = self.__symbols['sub_type_tickers']
-            sub_type_nan = self.__symbols['sub_type'].isna()
-            self.__symbols.loc[sub_type_nan,'sub_type'] = self.__symbols.loc[sub_type_nan,'sub_type_stocklist']
-            self.__symbols.drop(['sub_type_stocklist', 'sub_type_tickers'], axis=1, inplace=True)
+            if 'sub_type_tickers' in self.__symbols.columns:
+                self.__symbols['sub_type'] = self.__symbols['sub_type_tickers']
+                sub_type_nan = self.__symbols['sub_type'].isna()
+                self.__symbols.loc[sub_type_nan,'sub_type'] = self.__symbols.loc[sub_type_nan,'sub_type_stocklist']
+                self.__symbols.drop(['sub_type_stocklist', 'sub_type_tickers'], axis=1, inplace=True)
             self.__symbols.loc[self.__symbols['sub_type'].isna(),'sub_type'] = 'CS'
 
             # fill in missing names and drop name_tickers
-            self.__symbols['name'] = self.__symbols['name'].fillna(self.__symbols['name_tickers'])
-            self.__symbols.drop('name_tickers', axis=1, inplace=True)
+            if 'name_tickers' in self.__symbols.columns:
+                self.__symbols['name_stocklist'] = self.__symbols['name_stocklist'].fillna(self.__symbols['name_tickers'])
+                self.__symbols.drop('name_tickers', axis=1, inplace=True)
+                self.__symbols.rename(columns={'name_stocklist': 'name'}, inplace=True)
 
         # add info
         if not symbols_data_vault['info'].empty:
@@ -62,3 +64,6 @@ class Tickers():
         # reorder columns
         columns = [c for c in ['name', 'type', 'sub_type'] if c in self.__symbols.columns]
         self.__symbols = self.__symbols[columns]
+
+    def get(self):
+        return self.__symbols.copy()
