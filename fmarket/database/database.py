@@ -1,8 +1,33 @@
-import sqlite3, os, json
+import sqlite3, os, json, glob, shutil
 import numpy as np
 import pandas as pd
 
 class Database():
+    sql_types = {
+        np.int64:  'INTEGER',
+        np.int32:  'INTEGER',
+        np.float64:  'REAL',
+        np.bool_:  'BOOLEAN',
+        # int:  'INTEGER',
+        # float:  'REAL',
+        # bool:  'BOOLEAN',
+        # str: 'TEXT',
+        # dict: 'JSON',
+        # list: 'JSON',
+    }
+    
+    def __sql_type(self, column):
+        column_type = column.dtype.type
+        if column_type == np.object_:
+            if isinstance(column, pd.Index): return 'TEXT'
+            data_types = set(column.apply(type).tolist())
+            if len(data_types.difference(set([str, float, type(None)]))) == 0: return 'TEXT'
+            if len(data_types.difference(set([bool, float]))) == 0: return 'BOOLEAN'
+            if len(data_types.difference(set([list, dict, float, type(None)]))) == 0: return 'JSON'
+            raise ValueError('Unknown data types: %s' % data_types)
+
+        return self.sql_types[column_type]
+
     def __init__(self, name, new=False):
         self.name = name
         file_path = 'database/%s.db' % self.name
@@ -20,6 +45,33 @@ class Database():
 
     def commit(self):
         self.connection.commit()
+
+    def backup(self):
+        filename ='database/%s.db' % self.name
+        filename_backup ='database/backup/%s_01.db' % self.name
+        
+        backup_files = glob.glob('database/backup/%s_0*.db' % self.name)
+        backup_files = [os.path.normpath(filename).replace('\\', '/') for filename in backup_files]
+        backup_files.sort(reverse=True)
+        
+        if filename_backup in backup_files:
+            # move files up
+            for filename_old in backup_files:
+                splits = filename_old.split(self.name)
+                old_version = int(splits[1].strip('_').strip('.db'))
+                if old_version > 4:
+                    os.remove(filename_old)
+                    continue
+                new_version = old_version + 1
+                new_version = "{:02d}".format(new_version)
+                filename_new = 'database/backup/%s_%s.db' % (self.name, new_version)
+                shutil.move(filename_old, filename_new)
+
+        try:
+            shutil.copyfile(filename, filename_backup)
+            return 'File backup from %s to %s' % (filename, filename_backup)
+        except FileNotFoundError:
+            return 'File backup from %s failed' % filename
 
     def table_read(self, table_name, keys=[], columns=[]):
         cursor = self.connection.cursor()
@@ -74,3 +126,94 @@ class Database():
             table_data[column] = table_data[column].apply(lambda x: json.loads(x) if pd.notna(x) else x)
 
         return table_data
+
+    def table_write(self, table_name, df, replace=False, update=True):
+        # since we are manipulating df, make a copy
+        df = df.copy()
+        if df.empty: return
+
+        # check index
+        index_name = df.index.name
+        index = False
+        if index_name != None:
+            if not df.index.is_unique: raise ValueError('Index is not unique')
+            if index_name in df.columns: raise ValueError('Index name same as colmn name')
+            index = True
+
+        # drop column where all values are nan
+        df.dropna(axis=1, how='all', inplace=True)
+
+        # get column types
+        dtypes = {}
+        if index:
+            dtypes[index_name] = self.__sql_type(df.index) + ' PRIMARY KEY'
+        for column in df.columns:
+            dtypes[column] = self.__sql_type(df[column])
+
+        # dump JSON columns if needed
+        for column, dtype in dtypes.items():
+            if dtype != 'JSON': continue
+            df[column] = df[column].apply(lambda x: json.dumps(x) if not isinstance(x, type(None)) else x)
+
+        cursor = self.connection.cursor()
+
+        # if force replace, no need to do all below
+        if replace:
+            if index:
+                df.to_sql(table_name, self.connection, if_exists='replace', index=True, dtype=dtypes)
+            else:
+                df.to_sql(table_name, self.connection, if_exists='replace', index=False, dtype=dtypes)
+            return
+
+        # we are reading data befor writing, so we commit first
+        self.commit()
+
+        # get table info
+        table_info = cursor.execute("PRAGMA table_info('%s')" % table_name).fetchall()
+        if len(table_info) == 0:
+            # it's a new on, just use to_sql
+            cursor.close()
+            if index:
+                df.to_sql(table_name, self.connection, if_exists='replace', index=True, dtype=dtypes)
+            else:
+                df.to_sql(table_name, self.connection, if_exists='replace', index=False, dtype=dtypes)
+            return
+        
+        # check if we need to add columns
+        table_columns = [x[1] for x in table_info]
+        for column_name, dtype in dtypes.items():
+            if column_name in table_columns: continue
+            cursor.execute("ALTER TABLE '%s' ADD COLUMN [%s] %s" % (table_name, column_name, dtype))
+
+        if index:
+            # handle dataframe with index
+            primary_key_columns = [x[1] for x in table_info if x[5] == 1]
+            if index_name in primary_key_columns:
+                # find indices to append or update
+                key_values = cursor.execute("SELECT [%s] FROM '%s'" % (index_name, table_name)).fetchall()
+                key_values = [x[0] for x in key_values]
+                df_append = df[~df.index.isin(key_values)]
+                df_update = df[df.index.isin(key_values)]
+                if not df_append.empty:
+                    # handle appends
+                    df_append.reset_index(inplace=True)
+                    columns_string = ','.join('[%s]'%x for x in df_append.columns)
+                    value_holder_string = ','.join(['?']*len(df_append.columns))
+                    exec_string = "INSERT OR IGNORE INTO '%s' (%s) VALUES (%s)" % (table_name, columns_string, value_holder_string)
+                    values = df_append.values.tolist()
+                    cursor.executemany(exec_string, values)
+                if not df_update.empty and update:
+                    # handle updates
+                    for index, row in df_update.iterrows():
+                        # only update non empty values
+                        row = row.dropna()
+                        if len(row) == 0: continue
+                        columns_string = ','.join('[%s]'%x for x in row.index)
+                        value_holder_string = ','.join(['?']*row.shape[0])
+                        exec_string = "UPDATE '%s' SET (%s) = (%s) WHERE [%s] = '%s'"  % (table_name, columns_string, value_holder_string, index_name, index)
+                        # print(tuple(row.tolist()))
+                        cursor.execute(exec_string, tuple(row.tolist()))
+        else:
+            # just append them all
+            df.to_sql(table_name, self.connection, if_exists='append', index=False, dtype=dtypes)
+        cursor.close()
