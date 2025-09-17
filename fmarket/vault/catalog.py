@@ -21,7 +21,7 @@ class Catalog():
                 ]},
             Polygon_Tickers: {
                 'tickers': [
-                    ['name', 'name_tickers'],
+                    ['name', 'name'],
                     ['type', 'sub_type'],
                 ]},
             YahooF_Info: {
