@@ -5,7 +5,7 @@ from pprint import pp
 
 class Scrape_Multi():
     def __init__(self, scrapers):
-        scraper_classes_data = {FMP: [], Polygon: []}
+        scraper_classes_data = {FMP: [], Polygon: [], YahooF: []}
         for scraper in scrapers:
             scraper_class = scraper[0]
             key_values = scraper[1]
@@ -23,6 +23,7 @@ class Scrape_Multi():
                     update_scrapers.append(scraper_class)
             if len(update_scrapers) > 0:
                 multi_chunks.append((sub_class.__name__, update_scrapers, key_values))
+        if len(multi_chunks) == 0: return
 
         # start logger queue process for multi chunks
         self.queue = multiprocessing.Queue(-1)
@@ -30,7 +31,6 @@ class Scrape_Multi():
         listener.start()
 
         # run scrapes in multi thread
-        if len(multi_chunks) == 0: return
         processes = []
         for chunk in multi_chunks:
             p = multiprocessing.Process(target=self.update_scrapers, args=chunk)
@@ -45,7 +45,7 @@ class Scrape_Multi():
 
     def queue_process(self, threads):
         formatter = logging.Formatter('%(asctime)s: %(name)s:\t%(message)s', datefmt='%Y-%m-%d %H:%M:%S')
-        file_handler = logging.FileHandler('scrape.log', mode='w')
+        file_handler = logging.FileHandler('scrape.log', mode='a')
         file_handler.setFormatter(formatter)
 
         # Apply the handler to the root logger in this specific process

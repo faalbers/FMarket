@@ -1,25 +1,36 @@
 from ..vault import Vault
 from .scrape_multi import Scrape_Multi
 from .scrapers import *
+from ..tickers import Tickers
+from ..utils import Stop
+import os
 from pprint import pp
 
 class Scrape():
     def __init__(self):
         self.vault = Vault()
 
-    def update_status(self, key_values=[]):
+    def update(self, status=False):
+        status_all = ''
+        # start scrapes
         scrapers = [
             [FMP_Stocklist, []],
-            [Polygon_Tickers, []]
+            [Polygon_Tickers, []],
         ]
         for scraper in scrapers:
             status, info = scraper[0]().scrape_status(key_values=scraper[1])
-            print(info)
+            status_all += info + '\n'
+        if not status: Scrape_Multi(scrapers)
 
-    def update(self, key_values=[]):
+        # get tickers
+        tickers = Tickers().get()
         scrapers = [
-            [FMP_Stocklist, ['BLAH']],
-            [Polygon_Tickers, ['FLO']]
+            [YahooF_Info, sorted(tickers.index)],
         ]
-        scrape_multi = Scrape_Multi(scrapers)
-        # scrape_multi.update(['symbols'])
+        for scraper in scrapers:
+            status, info = scraper[0]().scrape_status(key_values=scraper[1])
+            status_all += info + '\n'
+        if not status: Scrape_Multi(scrapers)
+
+        return status_all
+
