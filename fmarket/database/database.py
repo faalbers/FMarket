@@ -1,6 +1,7 @@
 import sqlite3, os, json, glob, shutil
 import numpy as np
 import pandas as pd
+from multiprocessing import Pool
 
 class Database():
     sql_types = {
@@ -217,3 +218,71 @@ class Database():
             # just append them all
             df.to_sql(table_name, self.connection, if_exists='append', index=False, dtype=dtypes)
         cursor.close()
+
+    def table_write_reference(self, symbol, reference, df, replace=False, update=True):
+        # make reference table name
+        reference_name = reference + '_' + symbol
+        self.table_write(reference_name, df, replace=replace, update=update)
+        table_reference = pd.DataFrame([{reference: reference_name}], index=[symbol])
+        table_reference.index.name = 'symbol'
+        self.table_write('table_reference', table_reference)
+
+    def timeseries_read(self, reference, keys=[], columns=[], index_date=True):
+        return self.table_read_reference(reference, keys=keys, columns=columns, index_date=index_date)
+
+    @staticmethod
+    def reference_chunk(data):
+        keys = data[0]
+        columns = data[1]
+        index_date = data[2]
+        db_name = data[3]
+        db = Database(db_name)
+
+        timeseries = {}
+        for key, table_name in keys.items():
+            df = db.table_read(table_name, columns=columns)
+            if index_date:
+                df.index = pd.to_datetime(df.index, unit='s')
+                df.index.name = 'date'
+            timeseries[key] = df
+        
+        return timeseries
+
+    def table_read_reference(self, reference, keys=[], columns=[], index_date=False):
+        reference_table = self.table_read('table_reference', keys=keys, columns=[reference])[reference]
+        
+        timeseries = {}
+        if reference_table.shape[0] < 1200:
+            for key, table_name in reference_table.items():
+                df = self.table_read(table_name, columns=columns)
+                if index_date:
+                    df.index = pd.to_datetime(df.index, unit='s')
+                    df.index.name = 'date'
+                timeseries[key] = df
+            return timeseries
+        
+        # get with multi process
+        # gather symbol chunks based on cpu count
+        cpus = 8
+        keys = list(reference_table.index)
+        keys_limit = int(len(keys)/cpus)
+        if len(keys) % cpus > 0: keys_limit += 1
+        key_chunks = []
+        limit_idx = keys_limit
+        while limit_idx < (len(keys)+1):
+            key_chunk = keys[limit_idx-keys_limit:limit_idx]
+            dict_chunk = {key: reference_table[key] for key in key_chunk}
+            key_chunks.append((dict_chunk, columns, index_date, self.name))
+            limit_idx += keys_limit
+        left_idx = len(keys) % keys_limit
+        if left_idx > 0:
+            key_chunk = keys[-left_idx:]
+            dict_chunk = {key: reference_table[key] for key in key_chunk}
+            key_chunks.append((dict_chunk, columns, index_date, self.name))
+        
+        with Pool(processes=cpus) as pool:
+            results = pool.map(Database.reference_chunk, key_chunks)
+            for result in results:
+                timeseries.update(result)
+        
+        return timeseries
