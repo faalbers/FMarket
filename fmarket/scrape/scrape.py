@@ -10,9 +10,15 @@ class Scrape():
     def __init__(self):
         self.vault = Vault()
 
-    def update(self, status=False):
+    def update(self, status_only=False):
+        # remove old scrape.log
+        if not status_only and os.path.exists('scrape.log'): os.remove('scrape.log')
+
+        # clear stop
+        Stop().clear
+        
         status_all = ''
-        # start scrapes
+        # start symbols scrapes
         scrapers = [
             [FMP_Stocklist, []],
             [Polygon_Tickers, []],
@@ -20,9 +26,9 @@ class Scrape():
         for scraper in scrapers:
             status, info = scraper[0]().scrape_status(key_values=scraper[1])
             status_all += info + '\n'
-        if not status: Scrape_Multi(scrapers)
+        if not status_only: Scrape_Multi(scrapers)
 
-        # get tickers
+        # get yahoof info
         tickers = Tickers().get()
         scrapers = [
             [YahooF_Info, sorted(tickers.index)],
@@ -30,7 +36,18 @@ class Scrape():
         for scraper in scrapers:
             status, info = scraper[0]().scrape_status(key_values=scraper[1])
             status_all += info + '\n'
-        if not status: Scrape_Multi(scrapers)
+        if not status_only: Scrape_Multi(scrapers)
+
+        # get all other data
+        tickers = Tickers().get_yahoof()
+        scrapers = [
+            [YahooF_Chart, sorted(tickers.index)],
+            # [YahooF_Chart, ['ABAX']],
+        ]
+        for scraper in scrapers:
+            status, info = scraper[0]().scrape_status(key_values=scraper[1])
+            status_all += info + '\n'
+        if not status_only: Scrape_Multi(scrapers)
 
         return status_all
 

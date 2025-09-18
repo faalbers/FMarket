@@ -37,7 +37,7 @@ class Scrape_GUI(tk.Tk):
         self.log_text_widget.pack()
 
     def update_all_status(self):
-        status = self.scrape.update(status=True)
+        status = self.scrape.update(status_only=True)
         self.scrape_update_status_text(status)
     
     def update_all_thread(self):
@@ -46,6 +46,7 @@ class Scrape_GUI(tk.Tk):
         self.quit()
 
     def update_all(self):
+        if os.path.exists('scrape.log'): os.remove('scrape.log')
         self.scrape_update_text()
         self.button_update_all.config(state=tk.DISABLED)
         thread = threading.Thread(target=self.update_all_thread)
@@ -85,4 +86,4 @@ class Scrape_GUI(tk.Tk):
             self.log_text_widget.configure(state='disabled')
         
         # Schedule the next update after 1 second
-        self.after(5000, self.scrape_update_text)    
+        self.after(1000, self.scrape_update_text)    
