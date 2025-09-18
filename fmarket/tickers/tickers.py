@@ -58,12 +58,25 @@ class Tickers():
             self.__symbols.loc[self.__symbols['type'].isna(), 'type'] = 'NONE'
             self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
 
+            # tag if in yahoof
+            self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['info'].index),'yahoof'] = True
+
+
         # final cleanup
         self.__symbols.sort_index(inplace=True)
 
         # reorder columns
-        columns = [c for c in ['name', 'type', 'sub_type'] if c in self.__symbols.columns]
+        columns = [c for c in ['name', 'type', 'sub_type', 'yahoof'] if c in self.__symbols.columns]
         self.__symbols = self.__symbols[columns]
 
     def get(self):
-        return self.__symbols.copy()
+        tickers = self.__symbols.copy()
+        if 'yahoof' in tickers.columns: tickers.drop('yahoof', axis=1, inplace=True)
+        return tickers
+
+    def get_yahoof(self):
+        if not 'yahoof' in self.__symbols.columns: return pd.DataFrame()
+        tickers = self.__symbols.copy()
+        tickers = tickers[tickers['yahoof'] == True]
+        tickers.drop('yahoof', axis=1, inplace=True)
+        return tickers
