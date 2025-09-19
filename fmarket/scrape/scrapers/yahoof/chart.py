@@ -52,7 +52,6 @@ class YahooF_Chart(YahooF):
         return data
 
     def push_api_data(self, symbol, response_data):
-        print(symbol)
         ftime = FTime()
         result_data = response_data['chart']
 
@@ -78,6 +77,7 @@ class YahooF_Chart(YahooF):
         # update status
         self.db.table_write('status_db', status)
 
+        print(symbol, valid)
         return valid
 
     def scrape_status(self, key_values=[], tabs=0):

@@ -112,21 +112,22 @@ class Polygon_Tickers(Polygon):
         status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
         info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
+        info += '%s  table: tickers\n' % (tabs_string)
         status = None
         if status_db.shape[0] > 0:
             last_ts = status_db.loc['tickers', 'timestamp']
             last_time = ftime.get_from_ts_local(last_ts)
             next_time = ftime.get_offset(last_time, months=6)
             status = now >= next_time
-            info += '%s  table: tickers\n' % (tabs_string)
-            info += '%s    update     : %s\n' % (tabs_string, status)
             info += '%s    last update: %s\n' % (tabs_string, last_time)
             info += '%s    next update: %s\n' % (tabs_string, next_time)
         else:
             status = True
             info += '%s  table: tickers:\n' % (tabs_string)
-            info += '%s    update     : %s\n' % (tabs_string, True)
             info += '%s    update     : Not scraped before\n' % (tabs_string)
+        
+        info += '%s    update     : %s\n' % (tabs_string, status)
+        
         return status, info
 
     def get_vault_data(self, data_name, columns, key_values):
