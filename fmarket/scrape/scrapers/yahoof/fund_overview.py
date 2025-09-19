@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 from ....utils import FTime
 
-class YahooF_Info(YahooF):
+class YahooF_Fund_Overview(YahooF):
     db_name = 'yahoof_info'
 
     def __init__(self):
@@ -18,7 +18,7 @@ class YahooF_Info(YahooF):
         symbols, info = self.scrape_status(key_values=key_values)
         if len(symbols) == 0: return
 
-        self.logger = logging.getLogger('YahooF_Info'.ljust(20, ' '))
+        self.logger = logging.getLogger('YahooF_Fund_Overview'.ljust(20, ' '))
 
         self.logger.info('start update')
         
@@ -26,21 +26,19 @@ class YahooF_Info(YahooF):
         self.logger.info(self.db.backup())
 
         procs = {
-            'info': self.proc_info,
+            'fund_overview': self.proc_fund_overview,
         }
         self.multi_exec(procs, symbols)
 
         self.logger.info('update done')
     
-    def proc_info(self,ticker):
+    def proc_fund_overview(self,ticker):
         data = None
         while True:
             try:
-                info = ticker.info
-                if not isinstance(info, type(None)) and 'quoteType' in info:
-                    data = info
-                # else:
-                #     data = 'info is None'
+                fund_overview = ticker.funds_data.fund_overview
+                if not isinstance(fund_overview, type(None)) and len(fund_overview) > 0:
+                    data = fund_overview
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -48,27 +46,22 @@ class YahooF_Info(YahooF):
                     continue
                 else:
                     pass
-                    # data[2]['info'] = str(e)
             break
         return data
 
     def push_api_data(self, symbol, response_data):
         ftime = FTime()
-        result_data = response_data['info']
+        result_data = response_data['fund_overview']
 
-        status = pd.DataFrame({'info': 0}, index=[symbol])
+        status = pd.DataFrame({'fund_overview': 0}, index=[symbol])
         status.index.name = 'symbol'
 
         valid = False
         if not isinstance(result_data, type(None)):
-            # clean up some stuff
-            if 'companyOfficers' in result_data: result_data.pop('companyOfficers')
-            if 'executiveTeam' in result_data: result_data.pop('executiveTeam')
-            if 'symbol' in result_data: result_data.pop('symbol')
-            result = pd.DataFrame([result_data], index=[symbol])
+            result = pd.DataFrame([{'fundOverview': result_data}], index=[symbol])
             result.index.name = 'symbol'
             self.db.table_write('info', result)
-            status.loc[symbol, 'info'] = int(ftime.now_local.timestamp())
+            status.loc[symbol, 'fund_overview'] = int(ftime.now_local.timestamp())
             valid = True
 
         # update status
@@ -79,16 +72,16 @@ class YahooF_Info(YahooF):
     def scrape_status(self, key_values=[], tabs=0):
         # timestamps
         ftime = FTime()
-        five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
+        one_year_ts = ftime.get_offset(ftime.now_local, years=-1).timestamp()
 
         status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
         info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
-        info += '%s  table: info:\n' % (tabs_string)
+        info += '%s  table: info (add fund_overview):\n' % (tabs_string)
         status = []
-        if status_db.shape[0] > 0 and 'info' in status_db.columns:
-            symbols_skip = status_db['info'] == 0 # skip symbols that did not work last time
-            symbols_skip |= status_db['info'] >= five_days_ts # skip symbols that were done within the last 5 days
+        if status_db.shape[0] > 0 and 'fund_overview' in status_db.columns:
+            symbols_skip = status_db['fund_overview'] == 0 # skip symbols that did not work last time
+            symbols_skip |= status_db['fund_overview'] >= one_year_ts # skip symbols that were done within the year
             status = sorted(set(key_values).difference(status_db[symbols_skip].index))
         else:
             # we add all key_values to status
@@ -96,7 +89,7 @@ class YahooF_Info(YahooF):
             info += '%s    update     : Not scraped before\n' % (tabs_string)
 
         info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
-        
+
         return status, info
 
     def get_vault_data(self, data_name, columns, key_values):

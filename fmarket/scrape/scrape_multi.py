@@ -20,9 +20,9 @@ class Scrape_Multi():
             update_scrapers = []
             for scraper_class, key_values in scraper_classes:
                 if not scraper_class in update_scrapers:
-                    update_scrapers.append(scraper_class)
+                    update_scrapers.append([scraper_class, key_values])
             if len(update_scrapers) > 0:
-                multi_chunks.append((sub_class.__name__, update_scrapers, key_values))
+                multi_chunks.append((sub_class.__name__, update_scrapers))
         if len(multi_chunks) == 0: return
 
         # start logger queue process for multi chunks
@@ -68,12 +68,12 @@ class Scrape_Multi():
         for handler in logging.getLogger().handlers:
             handler.close()
     
-    def update_scrapers(self, sub_class, update_scrapers, key_values):
+    def update_scrapers(self, sub_class, update_scrapers):
         handler = logging.handlers.QueueHandler(self.queue)
         root = logging.getLogger()
         root.addHandler(handler)
         root.setLevel(logging.INFO)
 
-        for scraper_class in update_scrapers:
-            scraper_class().scrape_data(key_values=key_values)
+        for update_scraper in update_scrapers:
+            update_scraper[0]().scrape_data(key_values=update_scraper[1])
 
