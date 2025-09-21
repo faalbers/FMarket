@@ -18,7 +18,7 @@ class YahooF_Info(YahooF):
         symbols, info = self.scrape_status(key_values=key_values)
         if len(symbols) == 0: return
 
-        self.logger = logging.getLogger('YahooF_Info'.ljust(20, ' '))
+        self.logger = logging.getLogger('YahooF_Info'.ljust(25, ' '))
 
         self.logger.info('start update')
         

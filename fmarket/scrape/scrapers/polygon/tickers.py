@@ -17,7 +17,7 @@ class Polygon_Tickers(Polygon):
         status, info = self.scrape_status(key_values=key_values)
         if not status: return
 
-        self.logger = logging.getLogger('Polygon_Tickers'.ljust(20, ' '))
+        self.logger = logging.getLogger('Polygon_Tickers'.ljust(25, ' '))
 
         self.logger.info('start update')
         
@@ -123,7 +123,6 @@ class Polygon_Tickers(Polygon):
             info += '%s    next update: %s\n' % (tabs_string, next_time)
         else:
             status = True
-            info += '%s  table: tickers:\n' % (tabs_string)
             info += '%s    update     : Not scraped before\n' % (tabs_string)
         
         info += '%s    update     : %s\n' % (tabs_string, status)

@@ -18,7 +18,7 @@ class FMP_Stocklist(FMP):
         if not status: return
 
         # create logger with at least 20 character logger name
-        self.logger = logging.getLogger('FMP_Stocklist'.ljust(20, ' '))
+        self.logger = logging.getLogger('FMP_Stocklist'.ljust(25, ' '))
 
         self.logger.info('start update')
         
