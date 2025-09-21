@@ -48,17 +48,29 @@ class FTime:
     def get_from_ts_utc(self, ts):
         return pd.to_datetime(ts, unit='s', utc=True).tz_convert('UTC')
 
-    def get_date_local(self, date=None,**arguments):
-        if not isinstance(date, type(None)): return pd.Timestamp(date).tz_localize(tzlocal())
-        return pd.Timestamp(**arguments).tz_localize(tzlocal()).tz_convert('UTC')
+    def get_date_local(self, date=None, format=None, **arguments):
+        if not isinstance(date, type(None)):
+            if isinstance(format, type(None)):
+                return pd.Timestamp(date).tz_localize(tzlocal())
+            else:
+                return pd.to_datetime(date, format=format).tz_localize(tzlocal())
+        return pd.Timestamp(**arguments).tz_localize(tzlocal())
     
-    def get_date_utc(self, date=None,**arguments):
-        if not isinstance(date, type(None)): return pd.Timestamp(date).tz_localize(tzlocal()).tz_convert('UTC')
-        return pd.Timestamp(**arguments).tz_localize(tzlocal()).tz_convert('UTC')
+    def get_date_utc(self, date=None, format=None, **arguments):
+        if not isinstance(date, type(None)):
+            if isinstance(format, type(None)):
+                return pd.Timestamp(date).tz_localize('UTC')
+            else:
+                return pd.to_datetime(date, format=format).tz_localize('UTC')
+        return pd.Timestamp(**arguments).tz_localize('UTC')
     
-    def get_date_ny(self, date=None,**arguments):
-        if not isinstance(date, type(None)): return pd.Timestamp(date).tz_localize(tzlocal()).tz_convert('US/Eastern')
-        return pd.Timestamp(**arguments).tz_localize(tzlocal()).tz_convert('US/Eastern')
+    def get_date_ny(self, date=None, format=None, **arguments):
+        if not isinstance(date, type(None)):
+            if isinstance(format, type(None)):
+                return pd.Timestamp(date).tz_localize('US/Eastern')
+            else:
+                return pd.to_datetime(date, format=format).tz_localize('US/Eastern')
+        return pd.Timestamp(**arguments).tz_localize('US/Eastern')
     
     @property
     def is_market_open(self):
