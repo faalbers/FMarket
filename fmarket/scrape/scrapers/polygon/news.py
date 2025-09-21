@@ -13,40 +13,6 @@ class Polygon_News(Polygon):
         super().__init__()
         self.db = Database(self.db_name)
 
-        # request_arguments = {
-        #     'url': 'https://api.polygon.io/v2/reference/news',
-        #     'params': {
-        #         'limit': 1000,
-        #         'sort': 'published_utc',
-        #         'order': 'asc'
-        #     },
-        # }
-
-        # status_db = self.db.table_read('status_db')
-        # if not status_db.empty:
-        #     last_published_utc = status_db.loc['news', 'last_published_utc']
-        #     # add one minute to make sure we don't get any duplicates
-        #     last_published_utc = datetime.strptime(last_published_utc, '%Y-%m-%dT%H:%M:%SZ') + timedelta(minutes=1)
-        #     last_published_utc = last_published_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
-        #     self.logger.info('Polygon: Polygon_News update starting from: %s' % last_published_utc)
-        #     request_arguments['params']['published_utc.gt'] = last_published_utc
-        # else:
-        #     self.logger.info('Polygon: Polygon_News update starting from beginning')
-
-        # # backup first
-        # self.logger.info('Polygon: Polygon_News: %s' % self.db.backup())
-
-        # self.last_published_utc = None
-        # self.request(request_arguments, self.push_news_data)
-
-        # # update status
-        # if self.last_published_utc != None:
-        #     status_db = pd.DataFrame([{'last_published_utc': self.last_published_utc}], index=['news'])
-        #     status_db.index.name = 'table_name'
-        #     self.db.table_write('status_db', status_db, replace=True)
-
-        # self.logger.info('Polygon: Polygon_News update done')
-
     def scrape_data(self, key_values=[]):
         # check status
         status, info = self.scrape_status(key_values=key_values)
