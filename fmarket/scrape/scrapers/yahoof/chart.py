@@ -90,7 +90,7 @@ class YahooF_Chart(YahooF):
         info += '%s  reference table: chart:\n' % (tabs_string)
         status = []
         status_db = self.db.table_read('status_db')
-        if status_db.shape[0] > 0:
+        if status_db.shape[0] > 0 and 'chart' in status_db.columns:
             symbols_skip = status_db['chart'] == 0 # skip symbols that did not work last time
             symbols_skip |= status_db['chart'] >= five_days_ts # skip symbols that were done within the last 5 days
             symbols_skip |= ((status_db['chart'] - status_db['chart_last']) / (3600*24)) > 7 # more the 7 days between last data and update
@@ -119,6 +119,15 @@ class YahooF_Chart(YahooF):
                 return (data, self.db.timestamp)
             else:
                 data = self.db.table_read('info', keys=key_values)
+                return (data, self.db.timestamp)
+        if data_name == 'status_db_chart':
+            if len(columns) > 0:
+                column_names = [x[0] for x in columns]
+                data = self.db.table_read('status_db', keys=key_values, columns=column_names)
+                data = data.rename(columns={x[0]: x[1] for x in columns})
+                return (data, self.db.timestamp)
+            else:
+                data = self.db.table_read('status_db', keys=key_values)
                 return (data, self.db.timestamp)
 
     def get_vault_status(self, key_values, tabs=0):
