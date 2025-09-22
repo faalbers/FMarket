@@ -8,7 +8,8 @@ from pprint import pp
 
 class Scrape():
     scrape_symbols = True
-    scrape_news = True
+    scrape_polygon_news = True
+    scrape_finviz_news = True
     scrape_yahoof_info = True
     scrape_yahoof_fundamental = True
     scrape_yahoof_chart = True
@@ -32,10 +33,11 @@ class Scrape():
             scrapers.append([FMP_Stocklist, []])
             scrapers.append([Polygon_Tickers, []])
         
-        # add news
-        if self.scrape_news:
+        # add polygon news
+        if self.scrape_polygon_news:
             scrapers.append([Polygon_News, []])
 
+        # get tickers to selectively get symbols
         tickers = Tickers()
         
         # add yahoof info
@@ -43,7 +45,7 @@ class Scrape():
             symbols = tickers.get()
             scrapers.append([YahooF_Info, sorted(symbols.index)])
 
-            symbols = Tickers().get_yahoof()
+            symbols = tickers.get_yahoof()
             # add fund_overview
             if 'type' in symbols:
                 symbols_fund = symbols[symbols['type'] == 'MUTUALFUND']
@@ -57,7 +59,7 @@ class Scrape():
 
         # add fundamental
         if self.scrape_yahoof_fundamental:
-            symbols = Tickers().get_yahoof()
+            symbols = tickers.get_yahoof(active=True)
             
             # add fund_overview
             if 'type' in symbols:
@@ -70,10 +72,13 @@ class Scrape():
 
         # add chart
         if self.scrape_yahoof_chart:
-            symbols = Tickers().get_yahoof()
-            
-            # add chart
+            symbols = tickers.get_yahoof()
             scrapers.append([YahooF_Chart, sorted(symbols.index)])
+        
+        # add finviz news
+        if self.scrape_finviz_news:
+            symbols = tickers.get_yahoof(active=True)
+            scrapers.append([Finviz_News, sorted(symbols.index)])
 
         # collect status
         for scraper in scrapers:
