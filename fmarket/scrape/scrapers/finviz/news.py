@@ -82,7 +82,6 @@ class Finviz_News(Finviz):
         status = None
         if status_db.shape[0] > 0 and 'news' in status_db.columns:
             symbols_skip = status_db['news'] >= five_days_ts # skip symbols that were done within the last 5 days
-            print(len(symbols_skip))
             status = sorted(set(key_values).difference(status_db[symbols_skip].index))
         else:
             status = key_values
