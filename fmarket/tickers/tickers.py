@@ -61,12 +61,19 @@ class Tickers():
             # tag if in yahoof
             self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['info'].index),'yahoof'] = True
 
+        # add chart activity
+        if not symbols_data_vault['status_db_chart'].empty:
+            self.__symbols = self.__symbols.merge(symbols_data_vault['status_db_chart'],
+                how='outer', left_index=True, right_index=True)
+            self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
+            self.__symbols['active'] = self.__symbols['days'] <= 7
+            self.__symbols.drop(['chart', 'chart_last', 'days'], axis=1, inplace=True)
 
         # final cleanup
         self.__symbols.sort_index(inplace=True)
 
         # reorder columns
-        columns = [c for c in ['name', 'type', 'sub_type', 'yahoof'] if c in self.__symbols.columns]
+        columns = [c for c in ['name', 'type', 'sub_type', 'yahoof', 'active'] if c in self.__symbols.columns]
         self.__symbols = self.__symbols[columns]
 
     def get(self):
@@ -74,9 +81,13 @@ class Tickers():
         if 'yahoof' in tickers.columns: tickers.drop('yahoof', axis=1, inplace=True)
         return tickers
 
-    def get_yahoof(self):
+    def get_yahoof(self, active=False):
         if not 'yahoof' in self.__symbols.columns: return pd.DataFrame()
         tickers = self.__symbols.copy()
         tickers = tickers[tickers['yahoof'] == True]
         tickers.drop('yahoof', axis=1, inplace=True)
+        if 'active' in tickers.columns:
+            if active:
+                tickers = tickers[tickers['active'] == True]
+            tickers.drop('active', axis=1, inplace=True)
         return tickers

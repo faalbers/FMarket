@@ -30,5 +30,11 @@ class Catalog():
                     ['quoteType', 'type'],
                 ],
             },
+            YahooF_Chart: {
+                'status_db_chart': [
+                    ['chart', 'chart'],
+                    ['chart_last', 'chart_last'],
+                ],
+            },
         },
     }
