@@ -13,6 +13,7 @@ class Scrape():
     scrape_yahoof_info = True
     scrape_yahoof_fundamental = True
     scrape_yahoof_chart = True
+    scrape_etrade_quote = True
 
     def __init__(self):
         self.vault = Vault()
@@ -79,7 +80,12 @@ class Scrape():
             symbols = tickers.get_yahoof(active=True)
             scrapers.append([Finviz_News, sorted(symbols.index)])
 
-        # collect status
+        # add etrade quote
+        if self.scrape_etrade_quote:
+            symbols = tickers.get_yahoof(active=True)
+            scrapers.append([Etrade_Quote, sorted(symbols.index)])
+
+        # collect status info
         for scraper in scrapers:
             status, info = scraper[0]().scrape_status(key_values=scraper[1])
             status_all += info + '\n'

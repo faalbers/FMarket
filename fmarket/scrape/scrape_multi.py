@@ -5,7 +5,7 @@ from pprint import pp
 
 class Scrape_Multi():
     def __init__(self, scrapers):
-        scraper_classes_data = {FMP: [], Polygon: [], Finviz: [], YahooF: []}
+        scraper_classes_data = {FMP: [], Polygon: [], Finviz: [], YahooF: [], Etrade: []}
         for scraper in scrapers:
             scraper_class = scraper[0]
             key_values = scraper[1]
