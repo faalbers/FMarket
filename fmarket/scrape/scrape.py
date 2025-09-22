@@ -66,7 +66,6 @@ class Scrape():
                 # add quarterly equity data
                 symbols_equity = symbols[symbols['type'] == 'EQUITY']
                 if symbols_equity.shape[0] > 0:
-                    scrapers.append([YahooF_Info_Quarterly, sorted(symbols_equity.index)]) 
                     scrapers.append([YahooF_Fundamental_Yearly, sorted(symbols_equity.index)]) 
                     scrapers.append([YahooF_Fundamental_Quarterly, sorted(symbols_equity.index)]) 
 
