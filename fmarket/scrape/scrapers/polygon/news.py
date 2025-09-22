@@ -85,38 +85,6 @@ class Polygon_News(Polygon):
             # update on every page to not loose data
             self.db.commit()
 
-    # def push_news_data(self, response_data):
-    #     # do nothing of response is empty
-    #     if len(response_data) == 0: return
-
-    #     news_block = pd.DataFrame(response_data)
-    #     news_block.set_index('id', inplace=True)
-    #     self.last_published_utc = str(news_block.iloc[-1]['published_utc'])
-
-    #     # write news
-    #     self.db.table_write('news', news_block)
-
-    #     # create index references
-    #     symbol_ids = {}
-    #     for id, news_data in news_block.iterrows():
-    #         for ticker in news_data['tickers']:
-    #             if not ticker.isupper():
-    #                 # fix ticker names with non all upper case
-    #                 lower_cases = re.findall('[a-z]', ticker)
-    #                 if len(lower_cases) > 0:
-    #                     if lower_cases[0] == 'p':
-    #                         ticker = ticker.replace('p', '-P')
-    #                     else:
-    #                         ticker = ticker.replace(lower_cases[0], '-' + lower_cases[0].upper() + 'I')
-    #                 else:
-    #                     continue
-    #             if not ticker in symbol_ids:
-    #                 symbol_ids[ticker] = []
-    #             symbol_ids[ticker].append(id)
-    #     for symbol, ids in symbol_ids.items():
-    #         df = pd.DataFrame(ids, columns=['ids'])
-    #         self.db.table_write_reference(symbol, 'ids', df)
-
     def scrape_status(self, key_values=[], tabs=0):
         # get timestamps
         ftime = FTime()
