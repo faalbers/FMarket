@@ -29,13 +29,29 @@ class Scrape_GUI(tk.Tk):
         button = tk.Button(frame_actions, text='Update Stop', command=self.update_stop)
         button.pack(side='left')
 
-        log_frame = tk.Frame(self)
-        log_frame.pack()
+        scrape_info_frame = tk.Frame(self)
+        scrape_info_frame.pack()
 
-        self.log_text_widget = ScrolledText(log_frame, wrap=tk.WORD, width=130, height=50)
+        check_box_frame = tk.Frame(scrape_info_frame)
+        # check_box_frame.pack(anchor='w', padx=10, pady=10)
+        check_box_frame.pack(side='left', anchor='nw', padx=10, pady=10)
+
+        # add settings
+        self.settings = {}
+        for setting, state in self.scrape.settings.items():
+            self.settings[setting] = tk.BooleanVar(value=state)
+            tk.Checkbutton(check_box_frame, text=setting,
+                variable=self.settings[setting], command=self.check_changed).pack(anchor='w')
+
+        self.log_text_widget = ScrolledText(scrape_info_frame, wrap=tk.WORD, width=130, height=50)
         # self.log_text_widget.config(state='disabled')
-        self.log_text_widget.pack()
+        # self.log_text_widget.pack(anchor='w', )
+        self.log_text_widget.pack(side='left')
 
+    def check_changed(self):
+        for setting, variable in self.settings.items():
+            self.scrape.settings[setting] = variable.get()
+    
     def update_all_status(self):
         status = self.scrape.update(status_only=True)
         self.scrape_update_status_text(status)

@@ -7,13 +7,15 @@ import os
 from pprint import pp
 
 class Scrape():
-    scrape_symbols = True
-    scrape_polygon_news = True
-    scrape_finviz_news = True
-    scrape_yahoof_info = True
-    scrape_yahoof_fundamental = True
-    scrape_yahoof_chart = True
-    scrape_etrade_quote = True
+    settings = {
+        'symbols': True,
+        'polygon_news': True,
+        'finviz_news': True,
+        'yahoof_info': True,
+        'yahoof_fundamental': True,
+        'yahoof_chart': True,
+        'etrade_quote': True,
+    }
 
     def __init__(self):
         self.vault = Vault()
@@ -30,19 +32,19 @@ class Scrape():
         scrapers = []
 
         # add symbols
-        if self.scrape_symbols:
+        if self.settings['symbols']:
             scrapers.append([FMP_Stocklist, []])
             scrapers.append([Polygon_Tickers, []])
         
         # add polygon news
-        if self.scrape_polygon_news:
+        if self.settings['polygon_news']:
             scrapers.append([Polygon_News, []])
 
         # get tickers to selectively get symbols
         tickers = Tickers()
         
         # add yahoof info
-        if self.scrape_yahoof_info:
+        if self.settings['yahoof_info']:
             symbols = tickers.get()
             scrapers.append([YahooF_Info, sorted(symbols.index)])
 
@@ -59,7 +61,7 @@ class Scrape():
                     scrapers.append([YahooF_Info_Quarterly, sorted(symbols_equity.index)]) 
 
         # add fundamental
-        if self.scrape_yahoof_fundamental:
+        if self.settings['yahoof_fundamental']:
             symbols = tickers.get_yahoof(active=True)
             
             # add fund_overview
@@ -71,17 +73,17 @@ class Scrape():
                     scrapers.append([YahooF_Fundamental_Quarterly, sorted(symbols_equity.index)]) 
 
         # add chart
-        if self.scrape_yahoof_chart:
+        if self.settings['yahoof_chart']:
             symbols = tickers.get_yahoof()
             scrapers.append([YahooF_Chart, sorted(symbols.index)])
         
         # add finviz news
-        if self.scrape_finviz_news:
+        if self.settings['finviz_news']:
             symbols = tickers.get_yahoof(active=True)
             scrapers.append([Finviz_News, sorted(symbols.index)])
 
         # add etrade quote
-        if self.scrape_etrade_quote:
+        if self.settings['etrade_quote']:
             symbols = tickers.get_yahoof(active=True)
             scrapers.append([Etrade_Quote, sorted(symbols.index)])
 
