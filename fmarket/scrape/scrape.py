@@ -74,7 +74,7 @@ class Scrape():
 
         # add chart
         if self.settings['yahoof_chart']:
-            symbols = tickers.get_yahoof()
+            symbols = tickers.get_yahoof() # it's not active because the chart decides if it's active
             scrapers.append([YahooF_Chart, sorted(symbols.index)])
         
         # add finviz news
