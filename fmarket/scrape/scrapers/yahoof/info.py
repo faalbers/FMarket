@@ -74,6 +74,7 @@ class YahooF_Info(YahooF):
         # update status
         self.db.table_write('status_db', status)
 
+        print(symbol, valid)
         return valid
 
     def scrape_status(self, key_values=[], tabs=0):
