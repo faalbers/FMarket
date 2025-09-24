@@ -111,14 +111,22 @@ class YahooF_Chart(YahooF):
         return status, info
 
     def get_vault_data(self, data_name, columns, key_values):
+        # get columns rename
+        column_rename = {x[0]: x[1] for x in columns}
+        
+        # handle timeseries
+        if data_name in['chart']:
+            data = self.db.timeseries_read('chart', keys=key_values, columns=list(column_rename))
+            if len(columns) > 0:
+                for symbol, chart in data.items():
+                    chart.rename(columns={c: cr for c, cr in column_rename.items() if c in chart.columns}, inplace=True)
+            return data
+        
+        # handle tables
+        data = self.db.table_read(data_name, keys=key_values, columns=list(column_rename))
         if len(columns) > 0:
-            column_names = [x[0] for x in columns]
-            data = self.db.table_read(data_name, keys=key_values, columns=column_names)
-            data = data.rename(columns={x[0]: x[1] for x in columns})
-            return data
-        else:
-            data = self.db.table_read(data_name, keys=key_values)
-            return data
+            data.rename(columns={c: cr for c, cr in column_rename.items() if c in data.columns}, inplace=True)
+        return data
 
     def get_vault_status(self, key_values, tabs=0):
         return self.db_name+'\n'

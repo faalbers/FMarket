@@ -80,14 +80,14 @@ class FMP_Stocklist(FMP):
         return status, info
     
     def get_vault_data(self, data_name, columns, key_values):
+        # get columns rename
+        column_rename = {x[0]: x[1] for x in columns}
+        
+        # handle tables
+        data = self.db.table_read(data_name, keys=key_values, columns=list(column_rename))
         if len(columns) > 0:
-            column_names = [x[0] for x in columns]
-            data = self.db.table_read(data_name, keys=key_values, columns=column_names)
-            data = data.rename(columns={x[0]: x[1] for x in columns})
-            return data
-        else:
-            data = self.db.table_read(data_name, keys=key_values)
-            return data
+            data.rename(columns={c: cr for c, cr in column_rename.items() if c in data.columns}, inplace=True)
+        return data
 
     def get_vault_status(self, key_values, tabs=0):
         status, info = self.scrape_status(tabs=tabs)
