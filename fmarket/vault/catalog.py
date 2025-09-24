@@ -31,7 +31,7 @@ class Catalog():
                 ],
             },
             YahooF_Chart: {
-                'status_db_chart': [
+                'status_db': [
                     ['chart', 'chart'],
                     ['chart_last', 'chart_last'],
                 ],

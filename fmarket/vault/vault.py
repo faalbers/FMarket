@@ -13,6 +13,6 @@ class Vault():
         for scraper_class, scraper_data in catalog.items():
             scraper = scraper_class()
             for data_name, columns in scraper_data.items():
-                data[data_name], data[data_name + '_db_timestamp'] = scraper.get_vault_data(data_name, columns, key_values)
+                data[scraper_class.__name__+':'+data_name] = scraper.get_vault_data(data_name, columns, key_values)
         return data
     

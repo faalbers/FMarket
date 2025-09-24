@@ -14,16 +14,16 @@ class Tickers():
         self.__symbols = pd.DataFrame()
 
         # add stocklist
-        if not symbols_data_vault['stocklist'].empty:
-            self.__symbols = symbols_data_vault['stocklist']
+        if not symbols_data_vault['FMP_Stocklist:stocklist'].empty:
+            self.__symbols = symbols_data_vault['FMP_Stocklist:stocklist']
             self.__symbols.rename(columns={'type': 'sub_type'}, inplace=True)
             self.__symbols['sub_type'] = self.__symbols['sub_type'].str.upper()
             self.__symbols.loc[self.__symbols['sub_type'] == 'STOCK', 'sub_type'] = 'CS'
             self.__symbols.loc[self.__symbols['sub_type'] == 'TRUST', 'sub_type'] = 'UNIT'
 
         # add tickers
-        if not symbols_data_vault['tickers'].empty:
-            self.__symbols = self.__symbols.merge(symbols_data_vault['tickers'],
+        if not symbols_data_vault['Polygon_Tickers:tickers'].empty:
+            self.__symbols = self.__symbols.merge(symbols_data_vault['Polygon_Tickers:tickers'],
                 how='outer', left_index=True, right_index=True, suffixes=('_stocklist', '_tickers'))
             
             # consolidate sub_type
@@ -41,8 +41,8 @@ class Tickers():
                 self.__symbols.rename(columns={'name_stocklist': 'name'}, inplace=True)
 
         # add info
-        if not symbols_data_vault['info'].empty:
-            self.__symbols = self.__symbols.merge(symbols_data_vault['info'],
+        if not symbols_data_vault['YahooF_Info:info'].empty:
+            self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Info:info'],
                 how='outer', left_index=True, right_index=True)
             
             # make all the tickers starting with ^ into index
@@ -59,11 +59,11 @@ class Tickers():
             self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
 
             # tag if in yahoof
-            self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['info'].index),'yahoof'] = True
+            self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['YahooF_Info:info'].index),'yahoof'] = True
 
         # add chart activity
-        if not symbols_data_vault['status_db_chart'].empty:
-            self.__symbols = self.__symbols.merge(symbols_data_vault['status_db_chart'],
+        if not symbols_data_vault['YahooF_Chart:status_db'].empty:
+            self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'],
                 how='outer', left_index=True, right_index=True)
             self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
             self.__symbols['active'] = self.__symbols['days'] <= 7
