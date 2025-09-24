@@ -76,18 +76,15 @@ class Tickers():
         columns = [c for c in ['name', 'type', 'sub_type', 'yahoof', 'active'] if c in self.__symbols.columns]
         self.__symbols = self.__symbols[columns]
 
-    def get(self):
+    def get(self, yahoof=False, active=False):
         tickers = self.__symbols.copy()
-        if 'yahoof' in tickers.columns: tickers.drop('yahoof', axis=1, inplace=True)
+        if active and 'active' in tickers.columns:
+            tickers = tickers[tickers['active'] == True]
+            tickers.drop('active', axis=1, inplace=True)
+            tickers.drop('yahoof', axis=1, inplace=True)
+        if yahoof and 'yahoof' in tickers.columns:
+            tickers = tickers[tickers['yahoof'] == True]
+            tickers.drop('yahoof', axis=1, inplace=True)
+
         return tickers
 
-    def get_yahoof(self, active=False):
-        if not 'yahoof' in self.__symbols.columns: return pd.DataFrame()
-        tickers = self.__symbols.copy()
-        tickers = tickers[tickers['yahoof'] == True]
-        tickers.drop('yahoof', axis=1, inplace=True)
-        if 'active' in tickers.columns:
-            if active:
-                tickers = tickers[tickers['active'] == True]
-            tickers.drop('active', axis=1, inplace=True)
-        return tickers

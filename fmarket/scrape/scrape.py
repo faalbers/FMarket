@@ -18,7 +18,7 @@ class Scrape():
     }
 
     def __init__(self):
-        self.vault = Vault()
+        pass
 
     def update(self, status_only=False):
         # remove old scrape.log
@@ -48,7 +48,7 @@ class Scrape():
             symbols = tickers.get()
             scrapers.append([YahooF_Info, sorted(symbols.index)])
 
-            symbols = tickers.get_yahoof()
+            symbols = tickers.get(yahoof=True)
             # add fund_overview
             if 'type' in symbols:
                 symbols_fund = symbols[symbols['type'] == 'MUTUALFUND']
@@ -62,7 +62,7 @@ class Scrape():
 
         # add fundamental
         if self.settings['yahoof_fundamental']:
-            symbols = tickers.get_yahoof(active=True)
+            symbols = tickers.get(active=True)
             
             # add fund_overview
             if 'type' in symbols:
@@ -74,17 +74,17 @@ class Scrape():
 
         # add chart
         if self.settings['yahoof_chart']:
-            symbols = tickers.get_yahoof() # it's not active because the chart decides if it's active
+            symbols = tickers.get(yahoof=True) # it's not active because the chart decides if it's active
             scrapers.append([YahooF_Chart, sorted(symbols.index)])
         
         # add finviz news
         if self.settings['finviz_news']:
-            symbols = tickers.get_yahoof(active=True)
+            symbols = tickers.get(active=True)
             scrapers.append([Finviz_News, sorted(symbols.index)])
 
         # add etrade quote
         if self.settings['etrade_quote']:
-            symbols = tickers.get_yahoof(active=True)
+            symbols = tickers.get(active=True)
             scrapers.append([Etrade_Quote, sorted(symbols.index)])
 
         # collect status info
