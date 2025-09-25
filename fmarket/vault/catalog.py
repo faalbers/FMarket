@@ -37,4 +37,31 @@ class Catalog():
                 ],
             },
         },
+        'chart': {
+            YahooF_Chart: {
+                'chart': [
+                    ['Adj Close', 'price'],
+                ],
+            },
+        },
+        'analysis': {
+            YahooF_Info: {
+                'info': [
+                    ['sectorDisp', 'sector'],
+                    ['industryDisp', 'industry'],
+                    ['marketCap', 'market_cap'],
+                    ['trailingPE', 'pe_ttm'],
+                    ['forwardPE', 'pe_forward'],
+                    ['trailingPegRatio', 'peg_ttm'],
+                    ['fundOverview', 'fund_overview'],
+                ],
+            },
+            YahooF_Chart: {
+                'chart': [
+                    ['Adj Close', 'price'],
+                    ['Low', 'low'],
+                    ['High', 'high'],
+                ],
+            },
+        },
     }

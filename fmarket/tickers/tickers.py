@@ -88,3 +88,12 @@ class Tickers():
 
         return tickers
 
+    def get_analysis(self):
+        symbols = sorted(self.get(active=True).index)
+        data = self.vault.get_data('analysis', key_values=symbols)
+        return data
+
+    def get_chart(self):
+        symbols = sorted(self.get(active=True).index)
+        data = self.vault.get_data('chart', key_values=symbols)
+        return data

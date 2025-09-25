@@ -1,2 +1,2 @@
-from .scrape.scrape import Scrape
-from .scrape.scrape_gui import Scrape_GUI
+from .scrape import Scrape_GUI
+from .analysis import Analysis_GUI
