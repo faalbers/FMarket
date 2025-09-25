@@ -1,6 +1,8 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
 from .analysis import Analysis
+import pickle
+import pandas as pd
 
 class Analysis_GUI(tk.Tk):
     def __init__(self, symbols=[], cache=False):
@@ -27,17 +29,38 @@ class Analysis_GUI(tk.Tk):
         tk.Button(frame_actions, text='Load Filters', command=self.load_filters).pack(side='left')
         tk.Button(frame_actions, text='Analyze', command=self.analyze).pack(side='right')
 
-        self.resize_window()
-    
+        # self.resize_window()
+
     def save_filters(self):
-        print('Save Filters')
+        filters = self.frame_filters.get_filters()
+        if len(filters) == 0:
+            messagebox.showinfo('Save Filters', 'No filters to save')
+        else:
+            file = filedialog.asksaveasfile(filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='wb')
+            if file != None:
+                pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
+                file.close()
     
     def load_filters(self):
-        print('Load Filters')
+        file = filedialog.askopenfile(filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='rb')
+        if file != None:
+            filters = pickle.load(file)
+            file.close()
+            self.reset_frame_filters()
+            self.frame_filters.set_filters(filters)
 
     def analyze(self):
         print('Analyse')
-    
+
+    def reset_frame_filters(self):
+        self.frame_filters.destroy()
+        
+        self.frame_filters = Frame_Filters(self, self.data)
+        self.button_add_filter.config(command=self.frame_filters.add_frame_filter)
+        self.frame_filters.pack(anchor='w', padx=10, pady=10)
+
+        # self.resize_window()
+
     def resize_window(self):
         print('resize_window')
 
@@ -48,7 +71,7 @@ class Frame_Filters(tk.Frame):
         self.data = data
 
     def add_frame_filter(self, filter={'and': (), 'or': []}):
-        print('Add Filter')
+        print(filter)
         Frame_Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
         # self.parent.resize_window()
 
@@ -59,6 +82,16 @@ class Frame_Filters(tk.Frame):
                 widget.grid_configure(row=i)
         else:
             self.parent.reset_frame_filters()
+
+    def set_filters(self, filters):
+        for filter in filters:
+            self.add_frame_filter(filter)
+
+    def get_filters(self):
+        filters = []
+        for frame_filter in self.winfo_children():
+            filters.append(frame_filter.get_filter())
+        return filters
 
 class Frame_Filter(tk.Frame):
     def __init__(self, parent, data, filter={'and': (), 'or': []}):
@@ -86,11 +119,20 @@ class Frame_Filter(tk.Frame):
         self.frame_filter_or.add_filter()
         # self.parent.resize_window()
 
+    def get_filter(self):
+        filter = {}
+        filter['and'] = self.filter.get_filter()
+        filter['or'] = self.frame_filter_or.get_filters()
+        return filter
+
 class Frame_Filter_OR(tk.Frame):
     def __init__(self, parent, data, filters=[]):
         super().__init__(parent)
         self.parent = parent
         self.data = data
+        if len(filters) > 0:
+            for filter in filters:
+                self.add_filter(filter)
 
     def add_filter(self, filter=()):
         Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
@@ -105,6 +147,11 @@ class Frame_Filter_OR(tk.Frame):
             self.parent.reset_frame_filter_or()
         # self.parent.resize_window()
 
+    def get_filters(self):
+        filters = []
+        for filter in self.winfo_children():
+            filters.append(filter.get_filter())
+        return filters
 
 class Filter(tk.Frame):
     def __init__(self, parent, data, filter=()):
@@ -204,3 +251,12 @@ class Filter(tk.Frame):
 
     def function_changed(self, function):
         self.param_changed(self.param_select.get())
+
+    def get_filter(self):
+        column = self.param_select.get()
+        function = self.function_select.get()
+        if isinstance(self.value, tk.Entry):
+            value = self.value.get()
+        else:
+            value = self.value_select.get()
+        return (column, function, value)
