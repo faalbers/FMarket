@@ -3,3 +3,7 @@ pandas==2.3.2
 requests>=2.32.5
 ratelimit>=2.2.1
 yfinance>=0.2.65
+holidays>=0.81
+finvizfinance>=1.2.0
+rauth>=0.7.3
+ta-lib>=0.6.7
