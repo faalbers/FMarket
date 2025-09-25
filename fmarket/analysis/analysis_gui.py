@@ -71,7 +71,6 @@ class Frame_Filters(tk.Frame):
         self.data = data
 
     def add_frame_filter(self, filter={'and': (), 'or': []}):
-        print(filter)
         Frame_Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
         # self.parent.resize_window()
 
