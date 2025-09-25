@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from .analysis import Analysis
+from ..analysis import Analysis
 import pickle
 import pandas as pd
 
@@ -12,7 +12,8 @@ class Analysis_GUI(tk.Tk):
         self.mainloop()
 
     def build_gui(self):
-        self.title('Market Analysis')
+        self.title('Market Analysis: %s symbols' % self.data.shape[0])
+        self.minsize(width=700, height=50) 
 
         # action buttons frame
         frame_actions = tk.Frame(self)
@@ -28,8 +29,6 @@ class Analysis_GUI(tk.Tk):
         tk.Button(frame_actions, text='Save Filters', command=self.save_filters).pack(side='left')
         tk.Button(frame_actions, text='Load Filters', command=self.load_filters).pack(side='left')
         tk.Button(frame_actions, text='Analyze', command=self.analyze).pack(side='right')
-
-        # self.resize_window()
 
     def save_filters(self):
         filters = self.frame_filters.get_filters()
@@ -49,9 +48,6 @@ class Analysis_GUI(tk.Tk):
             self.reset_frame_filters()
             self.frame_filters.set_filters(filters)
 
-    def analyze(self):
-        print('Analyse')
-
     def reset_frame_filters(self):
         self.frame_filters.destroy()
         
@@ -59,10 +55,74 @@ class Analysis_GUI(tk.Tk):
         self.button_add_filter.config(command=self.frame_filters.add_frame_filter)
         self.frame_filters.pack(anchor='w', padx=10, pady=10)
 
-        # self.resize_window()
+    def analyze(self):
+        symbols, columns = self.get_filtered()
+        if len(columns) == 0:
+            columns = ['symbol','name']
+        else:
+            columns.discard('symbol')
+            columns.discard('name')
+            columns = ['symbol','name'] + [c for c in self.data.columns if c in columns]
+        # Analysis_Selection_GUI(self, symbols, columns)
 
-    def resize_window(self):
-        print('resize_window')
+    def get_filtered(self):
+        filters = self.frame_filters.get_filters()
+        select = pd.Series(True, index=self.data.index)
+        columns = set()
+        for filter in filters:
+            or_filters = [filter['and']] + filter['or']
+            or_select = pd.Series(False, index=self.data.index)
+            for or_filter in or_filters:
+                column = or_filter[0]
+                columns.add(column)
+                function = or_filter[1]
+                value = or_filter[2]
+                if value.isnumeric():
+                    value = int(value)
+                elif value.replace('.', '').isnumeric():
+                    value = float(value)
+                
+                if column == self.data.index.name:
+                    test_series = self.data.index
+                else:
+                    test_series = self.data[column]
+                
+                if function == '==':
+                    or_select = or_select | (test_series == value)
+                
+                if function == '!=':
+                    or_select = or_select | (test_series != value)
+                    
+                if function == '>':
+                    or_select = or_select | (test_series > value)
+                    
+                if function == '<':
+                    or_select = or_select | (test_series < value)
+                    
+                if function == '>=':
+                    or_select = or_select | (test_series >= value)
+                    
+                if function == '<=':
+                    or_select = or_select | (test_series <= value)
+                    
+                if function == 'contains':
+                    or_select = or_select | (test_series.str.lower().str.contains(value.lower().replace('^', r'\^')))
+                    
+                if function == 'startswith':
+                    or_select = or_select | (test_series.str.lower().str.startswith(value.lower()))
+                    
+                if function == 'endswith':
+                    or_select = or_select | (test_series.str.lower().str.endswith(value.lower()))
+                    
+                if function == 'isna':
+                    or_select = or_select | (test_series.isna())
+                    
+                if function == 'notna':
+                    or_select = or_select | (test_series.notna())
+                    
+            select = select & or_select
+
+        return (sorted(self.data[select].index), columns)
 
 class Frame_Filters(tk.Frame):
     def __init__(self, parent, data):
@@ -72,7 +132,6 @@ class Frame_Filters(tk.Frame):
 
     def add_frame_filter(self, filter={'and': (), 'or': []}):
         Frame_Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
-        # self.parent.resize_window()
 
     def remove_frame_filter(self, frame_filter_a):
         frame_filter_a.destroy()
@@ -110,13 +169,10 @@ class Frame_Filter(tk.Frame):
         self.frame_filter_or.grid(row=1, column=0, sticky=tk.W, padx=20)
 
     def remove_filter(self, filter_a):
-        print('Remove Filter')
         self.parent.remove_frame_filter(self)
-        # self.parent.resize_window()
 
     def add_filter(self):
         self.frame_filter_or.add_filter()
-        # self.parent.resize_window()
 
     def get_filter(self):
         filter = {}
@@ -135,7 +191,6 @@ class Frame_Filter_OR(tk.Frame):
 
     def add_filter(self, filter=()):
         Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
-        # self.parent.resize_window()
 
     def remove_filter(self, filter_a):
         filter_a.destroy()
@@ -144,7 +199,6 @@ class Frame_Filter_OR(tk.Frame):
                 widget.grid_configure(row=i)
         else:
             self.parent.reset_frame_filter_or()
-        # self.parent.resize_window()
 
     def get_filters(self):
         filters = []
