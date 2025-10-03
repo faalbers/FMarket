@@ -1,3 +1,4 @@
+
 from ..tickers import Tickers
 from ..database import Database
 import pandas as pd
@@ -5,89 +6,96 @@ import numpy as np
 import talib as ta
 
 class Analysis():
-    def __init__(self, symbols=[], cache=False):
+    def __init__(self, symbols=[]):
         self.db = Database('analysis')
-        if cache: self.__cache_data(symbols)
-        self.data = self.db.table_read('analysis', keys=symbols)
+        self.tickers = Tickers(symbols)
+        self.__data = {}
 
-    def __cache_data(self, symbols):
-        pd.options.display.float_format = '{:.3f}'.format
-        tickers = Tickers(symbols)
-
-        # start data with all active symbols
-        data = tickers.get(active=True) # get only active symbols
-
-        print('Get Analysis:')
-        analysis_data = tickers.get_analysis()
-        analysis_data['type'] = data['type']
-        
-        # add treasury rate 10y
-        if not '^TNX' in analysis_data['YahooF_Chart:chart']:
-            analysis_data['treasury_rate_10y'] = Tickers(['^TNX']).get_chart()['YahooF_Chart:chart']['^TNX']['price'].iloc[-1]
+    def get_filter(self, update_cache=False):
+        symbols = self.tickers.get().index
+        if update_cache:
+            # cache all symbols first
+            self.__cache_filter()
+            filter = self.db.table_read('analysis', keys=symbols)
         else:
-            analysis_data['treasury_rate_10y'] = analysis_data['YahooF_Chart:chart']['^TNX']['price'].iloc[-1]
+            # cache only missing data
+            filter = self.db.table_read('analysis', keys=symbols)
+            missing = set(symbols).difference(filter.index)
+            if len(missing) > 0:
+                self.__cache_filter(missing)
+                filter = self.db.table_read('analysis', keys=symbols)
+        return filter
 
-        print(analysis_data)
-        
-        # merge info
-        print('Info:')
-        info = analysis_data['YahooF_Info:info']
+    def __cache_filter(self, symbols=[]):
+        pd.options.display.float_format = '{:.3f}'.format
+        if len(symbols) == 0:
+            tickers = self.tickers
+        else:
+            tickers = Tickers(symbols)
+
+        # handle info
+        print('cache: info')
+        self.__data['info'] = tickers.get_info()
+        filter =  self.__data['info'].copy(deep=True)
 
         # name market cap
-        market_cap = info['market_cap'] / 1000000
-        info.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
-        info.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
-        info.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
-        info.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
+        market_cap = filter['market_cap'] / 1000000
+        filter.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
+        filter.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
+        filter.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
+        filter.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
 
         # handle funds info
-        is_fund_overview = info['fund_overview'].notna()
-        info.loc[is_fund_overview, 'fund_category'] = info.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
-        info.loc[is_fund_overview, 'fund_family'] = info.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
-        info = info.drop('fund_overview', axis=1)
+        is_fund_overview = filter['fund_overview'].notna()
+        filter.loc[is_fund_overview, 'fund_category'] = filter.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
+        filter.loc[is_fund_overview, 'fund_family'] = filter.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
+        filter = filter.drop('fund_overview', axis=1)
 
-        data = data.merge(info, how='left', left_index=True, right_index=True)
-
-        # fix 'infinity' from info
-        for column in data.columns[data.apply(lambda x: 'Infinity' in x.values)]:
-            data.loc[data[column] == 'Infinity', column] = np.nan
-
-        # get data derrived from charts
-        print('charts:')
-        minervini = self.get_minervini(analysis_data)
-        data = data.merge(minervini, how='left', left_index=True, right_index=True)
-
-        # infer al object columns
-        data = data.infer_objects()
+        # get minervini
+        self.__data['chart'] = tickers.get_chart()
+        minervini = self.__get_minervini()
+        filter = filter.merge(minervini, how='left', left_index=True, right_index=True)
+        
+        # get fundamental yearly
+        self.__data['fundamental'] = tickers.get_fundamental()
+        fundamental_yearly = self.__get_fundamental('yearly')
 
         # keep market_cap_name as market_cap
-        data.drop('market_cap', axis=1, inplace=True)
-        data.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
+        filter.drop('market_cap', axis=1, inplace=True)
+        filter.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
 
-        # return
-    
+        # fix 'infinity' from info
+        for column in filter.columns[filter.apply(lambda x: 'Infinity' in x.values)]:
+            filter.loc[filter[column] == 'Infinity', column] = np.nan
+
+        # infer al object columns
+        filter = filter.infer_objects()
+
+        # clear data
+        self.__data = {}
+
         # write to db
         self.db.backup()
-        self.db.table_write('analysis', data)
+        self.db.table_write('analysis', filter)
 
-    def get_minervini(self, analysis_data, symbols=[]):
+    def __get_minervini(self):
         chart_data = pd.DataFrame()
-        for symbol, chart in analysis_data['YahooF_Chart:chart'].items():
+        for symbol, chart in self.__data['chart'].items():
             # there are some price values that are strings because of Infinity
-            chart['price'] = chart['price'].astype(float, errors='ignore')
+            chart['adj_close'] = chart['adj_close'].astype(float, errors='ignore')
 
             # get mark minervini classifications
             # https://www.chartmill.com/documentation/stock-screener/technical-analysis-trading-strategies/496-Mark-Minervini-Trend-Template-A-Step-by-Step-Guide-for-Beginners
-            current_price = chart['price'].dropna().iloc[-1]
-            chart_data.loc[symbol, 'price'] = current_price
+            current_price = chart['adj_close'].dropna().iloc[-1]
+            chart_data.loc[symbol, 'adj_close'] = current_price
 
             conditions = []
             
-            sma_50 = ta.SMA(chart['price'], timeperiod=50)
+            sma_50 = ta.SMA(chart['adj_close'], timeperiod=50)
             
             for period in [150, 200]:
                 if chart.shape[0] >= period:
-                    sma = ta.SMA(chart['price'], timeperiod=period)
+                    sma = ta.SMA(chart['adj_close'], timeperiod=period)
                     conditions.append(current_price > sma.iloc[-1]) # Current Price Above the period Moving Average
                     conditions.append(sma_50.iloc[-1] > sma.iloc[-1]) # 50-Day Moving Average Above the period Moving Average
                     if chart.shape[0] >= (period + 20):
@@ -107,7 +115,7 @@ class Analysis():
                 conditions += [False, False]
 
             if chart.shape[0] >= 14:
-                rsi = ta.RSI(chart['price'], timeperiod=14).iloc[-1]
+                rsi = ta.RSI(chart['adj_close'], timeperiod=14).iloc[-1]
                 conditions.append(rsi > 70) # RSI Above 70
             else:
                 conditions.append(False)
@@ -116,3 +124,6 @@ class Analysis():
             chart_data.loc[symbol, 'minervini_score'] = minervini_score_percent
 
         return chart_data
+
+    def __get_fundamental(self, period):
+        print(self.__data['fundamental'][period])

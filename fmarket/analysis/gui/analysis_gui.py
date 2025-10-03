@@ -7,7 +7,11 @@ import pandas as pd
 class Analysis_GUI(tk.Tk):
     def __init__(self, symbols=[], cache=False):
         super().__init__()
-        self.data = Analysis(symbols, cache=cache).data
+        analysis = Analysis()
+        self.data = analysis.get(symbols, cache=cache)
+        if self.data.empty:
+            print('No symbols available to analyse')
+            return
         self.build_gui()
         self.mainloop()
 
