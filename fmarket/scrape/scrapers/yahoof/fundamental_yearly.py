@@ -154,11 +154,12 @@ class YahooF_Fundamental_Yearly(YahooF):
         # get columns rename
         column_rename = {x[0]: x[1] for x in columns}
         
-        # handle tables
-        data = self.db.table_read(data_name, keys=key_values, columns=list(column_rename))
+        # handle timeseries
+        data = self.db.timeseries_read(data_name, keys=key_values, columns=list(column_rename))
         if len(columns) > 0:
-            data.rename(columns={c: cr for c, cr in column_rename.items() if c in data.columns}, inplace=True)
+            for symbol, chart in data.items():
+                chart.rename(columns={c: cr for c, cr in column_rename.items() if c in chart.columns}, inplace=True)
         return data
-
+        
     def get_vault_status(self, key_values, tabs=0):
         return self.db_name+'\n'

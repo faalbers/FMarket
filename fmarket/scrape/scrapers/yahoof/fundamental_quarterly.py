@@ -220,6 +220,14 @@ class YahooF_Fundamental_Quarterly(YahooF):
         # get columns rename
         column_rename = {x[0]: x[1] for x in columns}
         
+        # handle timeseries
+        if data_name in ['quarterly']:
+            data = self.db.timeseries_read(data_name, keys=key_values, columns=list(column_rename))
+            if len(columns) > 0:
+                for symbol, chart in data.items():
+                    chart.rename(columns={c: cr for c, cr in column_rename.items() if c in chart.columns}, inplace=True)
+            return data
+        
         # handle tables
         data = self.db.table_read(data_name, keys=key_values, columns=list(column_rename))
         if len(columns) > 0:
