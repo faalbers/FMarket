@@ -40,11 +40,13 @@ class Catalog():
         'chart': {
             YahooF_Chart: {
                 'chart': [
-                    ['Adj Close', 'price'],
+                    ['Adj Close', 'adj_close'],
+                    ['Low', 'low'],
+                    ['High', 'high'],
                 ],
             },
         },
-        'analysis': {
+        'info': {
             YahooF_Info: {
                 'info': [
                     ['sectorDisp', 'sector'],
@@ -56,11 +58,46 @@ class Catalog():
                     ['fundOverview', 'fund_overview'],
                 ],
             },
-            YahooF_Chart: {
-                'chart': [
-                    ['Adj Close', 'price'],
-                    ['Low', 'low'],
-                    ['High', 'high'],
+        },
+        'fundamental': {
+            YahooF_Fundamental_Quarterly: {
+                'ttm': [
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncome', 'net_income'],
+                    ['DilutedEPS', 'eps'],
+                ],
+                'quarterly': [
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncome', 'net_income'],
+                    ['DilutedEPS', 'eps'],
+                ],
+            },
+            YahooF_Fundamental_Yearly: {
+                'yearly': [
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncome', 'net_income'],
+                    ['DilutedEPS', 'eps'],
                 ],
             },
         },

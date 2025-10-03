@@ -2,12 +2,12 @@ from ..vault import Vault
 import pandas as pd
 
 class Tickers():
-    def __init__(self, symbols=[]):
+    def __init__(self, symbols=[], active=True):
         self.vault = Vault()
-        self.__make_symbols(symbols)
+        self.__make_symbols(symbols, active)
         self.empty = self.__symbols.empty
 
-    def __make_symbols(self, symbols):
+    def __make_symbols(self, symbols, active):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
 
         # start creating symbols
@@ -58,15 +58,17 @@ class Tickers():
             self.__symbols.loc[self.__symbols['type'].isna(), 'type'] = 'NONE'
             self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
 
-            # tag if in yahoof
+            # keep only the ones in yahoof
             self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['YahooF_Info:info'].index),'yahoof'] = True
+            self.__symbols = self.__symbols[self.__symbols['yahoof'] == True]
+            self.__symbols.drop(['yahoof'], axis=1, inplace=True)
 
-        # add chart activity
-        if not symbols_data_vault['YahooF_Chart:status_db'].empty:
+        # handle chart activity
+        if active and not symbols_data_vault['YahooF_Chart:status_db'].empty:
             self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'],
                 how='outer', left_index=True, right_index=True)
             self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
-            self.__symbols['active'] = self.__symbols['days'] <= 7
+            self.__symbols = self.__symbols[self.__symbols['days'] <= 7]
             self.__symbols.drop(['chart', 'chart_last', 'days'], axis=1, inplace=True)
 
         # final cleanup
@@ -76,24 +78,26 @@ class Tickers():
         columns = [c for c in ['name', 'type', 'sub_type', 'yahoof', 'active'] if c in self.__symbols.columns]
         self.__symbols = self.__symbols[columns]
 
-    def get(self, yahoof=False, active=False):
+    def get(self):
         tickers = self.__symbols.copy()
-        if active and 'active' in tickers.columns:
-            tickers = tickers[tickers['active'] == True]
-            tickers.drop('active', axis=1, inplace=True)
-            tickers.drop('yahoof', axis=1, inplace=True)
-        if yahoof and 'yahoof' in tickers.columns:
-            tickers = tickers[tickers['yahoof'] == True]
-            tickers.drop('yahoof', axis=1, inplace=True)
 
         return tickers
 
-    def get_analysis(self):
-        symbols = sorted(self.get(active=True).index)
-        data = self.vault.get_data('analysis', key_values=symbols)
+    def get_info(self):
+        info = self.vault.get_data('info', key_values=sorted(self.__symbols.index))['YahooF_Info:info']
+        data = self.__symbols.merge(info, how='outer', left_index=True, right_index=True)
         return data
 
     def get_chart(self):
-        symbols = sorted(self.get(active=True).index)
-        data = self.vault.get_data('chart', key_values=symbols)
+        data = self.vault.get_data('chart', key_values=sorted(self.__symbols.index))['YahooF_Chart:chart']
         return data
+
+    def get_fundamental(self):
+        data = self.vault.get_data('fundamental', key_values=sorted(self.__symbols.index))
+        fundamental = {
+            'ttm': data['YahooF_Fundamental_Quarterly:ttm'],
+            'quarterly': data['YahooF_Fundamental_Quarterly:quarterly'],
+            'yearly': data['YahooF_Fundamental_Yearly:yearly'],
+        }
+        return fundamental
+
