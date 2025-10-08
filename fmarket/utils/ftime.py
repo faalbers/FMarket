@@ -30,6 +30,7 @@ class FTime:
     def date_utc(self):
         return self.now_utc.normalize()
     
+    @property
     def date_ny(self):
         return self.now_ny.normalize()
     
