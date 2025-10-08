@@ -1,6 +1,8 @@
 
 from ..tickers import Tickers
 from ..database import Database
+from ..utils import utils, FTime
+from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
 import talib as ta
@@ -34,7 +36,7 @@ class Analysis():
             tickers = Tickers(symbols)
 
         # handle info
-        print('cache: info')
+        print('get data: info')
         self.__data['info'] = tickers.get_info()
         filter =  self.__data['info'].copy(deep=True)
 
@@ -51,14 +53,67 @@ class Analysis():
         filter.loc[is_fund_overview, 'fund_family'] = filter.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
         filter = filter.drop('fund_overview', axis=1)
 
-        # get minervini
+        # get chart
+        print('get data: chart')
         self.__data['chart'] = tickers.get_chart()
+
+        # add treasury rate 10y
+        if not '^TNX' in self.__data['chart']:
+            self.__data['treasury_rate_10y'] = Tickers(['^TNX']).get_chart()['^TNX']['adj_close'].iloc[-1]
+        else:
+            self.__data['treasury_rate_10y'] = self.__data['chart']['^TNX']['adj_close'].iloc[-1]
+
+        # get minervini
         minervini = self.__get_minervini()
         filter = filter.merge(minervini, how='left', left_index=True, right_index=True)
+
+        # get dividends
+        dividend_yields = self.__get_dividend_yields()
+        for period in ['yearly', 'ttm']:
+            name = 'dividends_'+period
+            trends = self.__get_trends(dividend_yields[period], name=name)
+            period_end_name = name+'_period_end'
+            end_period = trends[period_end_name].infer_objects()
+            trends.drop(period_end_name, axis=1, inplace=True)
+            if period == 'yearly':
+                trends[name+'_end_year'] = end_period
+            filter = filter.merge(trends, how='left', left_index=True, right_index=True)
         
-        # get fundamental yearly
+        # get fundamental
+        print('get data: fundamental')
         self.__data['fundamental'] = tickers.get_fundamental()
-        fundamental_yearly = self.__get_fundamental('yearly')
+        
+        # get fundamentals
+        fundamentals = {}
+        fundamentals['yearly'] = self.__get_fundamental('yearly')
+        fundamentals['quarterly'] = self.__get_fundamental('quarterly')
+        fundamentals['ttm'] = self.__get_fundamental_ttm().T
+
+        # get fundamentals trends
+        params_skip = ['free cash flow', 'price to free cash flow']
+        for period in ['yearly', 'quarterly']:
+            for param, trend_data in fundamentals[period].items():
+                if trend_data.empty: continue
+                if param in params_skip: continue
+                name = param.replace(' ', '_')+'_'+period
+                trends = self.__get_trends(trend_data, name=name)
+                end_period = trends[name+'_period_end'].infer_objects()
+                trends.drop(name+'_period_end', axis=1, inplace=True)
+                if period == 'quarterly':
+                    trends[name+'_end_year'] = end_period.dt.year
+                    trends[name+'_end_month'] = end_period.dt.month
+                elif period == 'yearly':
+                    trends[name+'_end_year'] = end_period
+                filter = filter.merge(trends, how='left', left_index=True, right_index=True)
+
+        # rename ttm parameters and merge
+        rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
+        fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
+        filter = filter.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
+
+        # merge margin of safety
+        margins_of_safety = self._get_margins_of_safety(fundamentals)
+        filter = filter.merge(margins_of_safety, how='left', left_index=True, right_index=True)
 
         # keep market_cap_name as market_cap
         filter.drop('market_cap', axis=1, inplace=True)
@@ -78,10 +133,110 @@ class Analysis():
         self.db.backup()
         self.db.table_write('analysis', filter)
 
+    def _get_margins_of_safety(self, fundamentals):
+        ftime = FTime()
+        data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
+        if not 'yearly' in fundamentals: return data
+        if not 'free cash flow' in fundamentals['yearly']: return data
+        if not 'price to free cash flow' in fundamentals['yearly']: return data
+        if not 'ttm' in self.__data['fundamental']: return data
+        if not 'info' in self.__data: return data
+        if not 'treasury_rate_10y' in self.__data: return data
+
+        # get yearly fcf trends
+        renames = {
+            'volatility': 'margin_of_safety_volatility',
+            'trend_step_ratio': 'growth',
+        }
+        mos = utils.get_trends(fundamentals['yearly']['free cash flow'])[list(renames)]
+        mos.rename(columns=renames, inplace=True)
+
+        # get other info
+        if fundamentals['yearly']['price to free cash flow'].empty: return data
+        mos['pfcf'] = utils.get_average(fundamentals['yearly']['price to free cash flow'])
+        mos['fcf'] = self.__data['fundamental']['ttm'].loc[mos.index.intersection(self.__data['fundamental']['ttm'].index), 'free_cash_flow']
+        mos['market_cap'] = self.__data['info'].loc[mos.index.intersection(self.__data['info'].index), 'market_cap']
+        mos['pfcf_ttm'] = mos['market_cap'] / mos['fcf']
+        mos.dropna(how='any', axis=0, inplace=True)
+        mos = mos[(mos['pfcf'] > 0) & (mos['fcf'] > 0)]
+        if mos.empty: return data
+        
+        # calculate intrinsic value
+        discount = (self.__data['treasury_rate_10y'] + 3.0) / 100.0 # at least 10y treasury rate + 3%, change to decimal
+        years = 10
+        years = np.arange(10+1)
+        for symbol, row in mos.iterrows():
+            values = row['fcf'] * (1 + row['growth']) ** years
+            fcf_growth = pd.Series(values).to_frame('fcf')
+            fcf_growth['fcf_dcf'] = fcf_growth['fcf'] / ((1.0 + discount) ** years)
+            terminal_value = fcf_growth['fcf_dcf'].iloc[-1] * row['pfcf'] # using exit_multiple
+            intrinsic_value = fcf_growth['fcf_dcf'].iloc[:-1].sum() + terminal_value
+            margin_of_safety = 1.0-(row['market_cap']/intrinsic_value)
+            mos.loc[symbol, 'margin_of_safety'] = margin_of_safety
+            deviation = np.abs(row['pfcf']-row['pfcf_ttm']) / max(np.abs(row['pfcf']),np.abs(row['pfcf_ttm']))
+            mos.loc[symbol, 'margin_of_safety_deviation'] = deviation
+        mos = mos[['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation']] * 100 # turn into percent values
+        
+        return mos
+    
+    def __get_trends(self, data, name):
+        renames = {
+            'trend_step_ratio': '%s_trend' % name,
+            'step_count': '%s_count' % name,
+            'volatility': '%s_volatility' % name,
+            'last_valid_value': name,
+            'last_valid_index': '%s_period_end' % name,
+        }
+        trends_result = utils.get_trends(data)[list(renames)]
+        trends_result.rename(columns=renames, inplace=True)
+
+        return trends_result
+
+    def __get_dividend_yields(self):
+        ftime = FTime()
+        dividend_yields = {
+            'all': [],
+        }
+        last_close_time = pd.Timestamp('2000-01-01')
+        for symbol, chart in self.__data['chart'].items():
+            chart = chart.copy()
+            if 'dividends' in chart.columns:
+                is_dividend = chart['dividends'] > 0.0
+                if is_dividend.any():
+                    if chart.index[-1] > last_close_time: last_close_time = chart.index[-1]
+                    # get dividends
+                    dividends = chart[is_dividend]['dividends']
+                    dividends.name = symbol
+                    # use close price and not adj_close price to calculate yield so that stock splits are accounted for
+                    dividend_yields['all'].append((dividends / float(chart['close'].iloc[-1])) * 100)
+
+        # prepare all dividends
+        dividend_yields['all'] = pd.DataFrame(dividend_yields['all']).T
+        dividend_yields['all'].sort_index(inplace=True)
+
+        if not dividend_yields['all'].empty:
+            # create yearly
+            last_year = ftime.get_offset(ftime.date_local, years=-1).year
+            dividend_yields['yearly'] = dividend_yields['all'].groupby(dividend_yields['all'].index.year).sum().loc[:last_year]
+            dividend_yields['yearly'] = dividend_yields['yearly'].iloc[1:]
+            dividend_yields['yearly'].replace(0, np.nan, inplace=True)
+
+            # create ttm
+            dividend_yields['ttm'] = dividend_yields['all'].groupby(dividend_yields['all'].index.map(lambda x: relativedelta(last_close_time, x).years)).sum()
+            dividend_yields['ttm'].sort_index(ascending=False, inplace=True)
+            dividend_yields['ttm'] = dividend_yields['ttm'].iloc[1:]
+            dividend_yields['ttm'].replace(0, np.nan, inplace=True)
+        else:
+            dividend_yields['yearly'] = pd.DataFrame()
+            dividend_yields['ttm'] = pd.DataFrame()
+
+        return dividend_yields
+
     def __get_minervini(self):
         chart_data = pd.DataFrame()
         for symbol, chart in self.__data['chart'].items():
             # there are some price values that are strings because of Infinity
+            if 'adj_close' not in chart.columns: continue
             chart['adj_close'] = chart['adj_close'].astype(float, errors='ignore')
 
             # get mark minervini classifications
@@ -125,5 +280,109 @@ class Analysis():
 
         return chart_data
 
+    def __get_fundamental_ttm(self):
+        trailing = self.__data['fundamental']['ttm'].copy()
+        data = pd.DataFrame()
+        if 'current_liabilities' in trailing.columns:
+            if 'current_assets' in trailing.columns:
+                data['current ratio'] = (trailing['current_assets'] / trailing['current_liabilities']) * 100
+            if 'cash_and_cash_equivalents' in trailing.columns:
+                data['cash ratio'] = (trailing['cash_and_cash_equivalents'] / trailing['current_liabilities']) * 100.0
+        if 'total_revenue' in trailing.columns:
+            if 'gross_profit' in trailing.columns:
+                data['gross profit margin'] = (trailing['gross_profit'] / trailing['total_revenue']) * 100
+            if 'operating_income' in trailing.columns:
+                data['operating profit margin'] = (trailing['operating_income'] / trailing['total_revenue']) * 100
+            if 'pretax_income' in trailing.columns:
+                data['profit margin'] = (trailing['pretax_income'] / trailing['total_revenue']) * 100
+            if 'net_income' in trailing.columns:
+                data['net profit margin'] = (trailing['net_income'] / trailing['total_revenue']) * 100
+        # if 'free_cash_flow' in trailing.columns:
+        #     data['free cash flow'] = trailing['free_cash_flow']
+
+        # post fix data
+        data = data.T
+        data = data.infer_objects()
+        # values with inf had nan values as deviders
+        data = data.replace([np.inf, -np.inf], np.nan)
+        # drop symbols and dates where all values are nan
+        data.dropna(axis=1, how='all', inplace=True)
+
+        return data
+        
+
     def __get_fundamental(self, period):
-        print(self.__data['fundamental'][period])
+        # prepare dataframes
+        data = {
+            'current ratio': [],
+            'cash ratio': [],
+            'gross profit margin': [],
+            'operating profit margin': [],
+            'profit margin': [],
+            'net profit margin': [],
+            'pe': [],
+            'free cash flow': [],
+            'price to free cash flow': [],
+        }
+
+        # go through each symbol's dataframe
+        for symbol, period_data in self.__data['fundamental'][period].items():
+            # prepare dataframe
+            symbol_period = period_data.copy()
+            symbol_period.dropna(axis=0, how='all', inplace=True)
+
+            # add price to dates
+            if symbol in self.__data['chart']:
+                for date in symbol_period.index:
+                    prices = self.__data['chart'][symbol].loc[:date]
+                    if not prices.empty and 'adj_close' in prices.columns:
+                        symbol_period.loc[date, 'price'] = prices['adj_close'].iloc[-1]
+
+            # change yearly dates to year
+            if period == 'yearly':
+                symbol_period.index = symbol_period.index.year
+            symbol_period = symbol_period.groupby(symbol_period.index).last() # some have more then one results in a period, strangely
+
+            # calculate ratios as Series
+            def add_values(param, symbol, values):
+                values.name = symbol
+                data[param].append(values)
+            if 'current_liabilities' in symbol_period.columns:
+                if 'current_assets' in symbol_period.columns:
+                    add_values('current ratio', symbol, (symbol_period['current_assets'] / symbol_period['current_liabilities']) * 100)
+                if 'cash_and_cash_equivalents' in symbol_period.columns:
+                    add_values('cash ratio', symbol, (symbol_period['cash_and_cash_equivalents'] / symbol_period['current_liabilities']) * 100.0)
+            if 'total_revenue' in symbol_period.columns:
+                if 'gross_profit' in symbol_period.columns:
+                    add_values('gross profit margin', symbol, (symbol_period['gross_profit'] / symbol_period['total_revenue']) * 100)
+                if 'operating_income' in symbol_period.columns:
+                    add_values('operating profit margin', symbol, (symbol_period['operating_income'] / symbol_period['total_revenue']) * 100)
+                if 'pretax_income' in symbol_period.columns:
+                    add_values('profit margin', symbol, (symbol_period['pretax_income'] / symbol_period['total_revenue']) * 100)
+                if 'net_income' in symbol_period.columns:
+                    add_values('net profit margin', symbol, (symbol_period['net_income'] / symbol_period['total_revenue']) * 100)
+            if 'free_cash_flow' in symbol_period.columns:
+                add_values('free cash flow', symbol, symbol_period['free_cash_flow'])
+            if 'price' in symbol_period.columns:
+                if 'eps' in symbol_period.columns:
+                    eps = symbol_period['eps']
+                    if period == 'quarterly': eps = eps * 4
+                    add_values('pe', symbol, symbol_period['price']/eps)
+                if 'shares' in symbol_period.columns:
+                    market_cap = symbol_period['price'] * symbol_period['shares']
+                    if 'free_cash_flow' in symbol_period.columns:
+                        fcf = symbol_period['free_cash_flow']
+                        if period == 'quarterly': fcf = fcf * 4
+                        add_values('price to free cash flow', symbol, market_cap / fcf)
+
+        # create dataframe pre parameter
+        for parameter, series in data.items():
+            data[parameter] = pd.DataFrame(series).T
+            # values with inf had nan values as deviders
+            data[parameter] = data[parameter].replace([np.inf, -np.inf], np.nan)
+            # drop symbols and dates where all values are nan
+            data[parameter].dropna(axis=1, how='all', inplace=True)
+            # sort index
+            data[parameter].sort_index(inplace=True)
+
+        return data

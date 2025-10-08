@@ -5,10 +5,10 @@ import pickle
 import pandas as pd
 
 class Analysis_GUI(tk.Tk):
-    def __init__(self, symbols=[], cache=False):
+    def __init__(self, symbols=[], update_cache=False):
         super().__init__()
-        analysis = Analysis()
-        self.data = analysis.get(symbols, cache=cache)
+        analysis = Analysis(symbols)
+        self.data = analysis.get_filter(update_cache=update_cache)
         if self.data.empty:
             print('No symbols available to analyse')
             return

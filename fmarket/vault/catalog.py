@@ -41,8 +41,11 @@ class Catalog():
             YahooF_Chart: {
                 'chart': [
                     ['Adj Close', 'adj_close'],
+                    ['Close', 'close'],
                     ['Low', 'low'],
                     ['High', 'high'],
+                    ['Dividends', 'dividends'],
+                    ['Stock Splits', 'stock_splits'],
                 ],
             },
         },
@@ -72,6 +75,7 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
+                    ['DilutedAverageShares', 'shares'],
                 ],
                 'quarterly': [
                     ['CurrentAssets', 'current_assets'],
@@ -84,6 +88,7 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
+                    ['DilutedAverageShares', 'shares'],
                 ],
             },
             YahooF_Fundamental_Yearly: {
@@ -98,6 +103,7 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
+                    ['DilutedAverageShares', 'shares'],
                 ],
             },
         },
