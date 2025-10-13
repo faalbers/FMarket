@@ -12,9 +12,9 @@ class Polygon_Tickers(Polygon):
         super().__init__()
         self.db = Database(self.db_name)
 
-    def scrape_data(self, key_values=[]):
+    def scrape_data(self, key_values=[], forced=False):
         # check status
-        status, info = self.scrape_status(key_values=key_values)
+        status, info = self.scrape_status(key_values=key_values, forced=forced)
         if not status: return
 
         self.logger = logging.getLogger('Polygon_Tickers'.ljust(25, ' '))
@@ -104,7 +104,7 @@ class Polygon_Tickers(Polygon):
         # update on every page to not loose data
         self.db.commit()        
 
-    def scrape_status(self, key_values=[], tabs=0):
+    def scrape_status(self, key_values=[], forced=False, tabs=0):
         # get timestamps
         ftime = FTime()
         now = ftime.now_local
@@ -114,18 +114,24 @@ class Polygon_Tickers(Polygon):
         info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
         info += '%s  table: tickers\n' % (tabs_string)
         status = None
-        if status_db.shape[0] > 0:
-            last_ts = status_db.loc['tickers', 'timestamp']
-            last_time = ftime.get_from_ts_local(last_ts)
-            next_time = ftime.get_offset(last_time, months=6)
-            status = now >= next_time
-            info += '%s    last update: %s\n' % (tabs_string, last_time)
-            info += '%s    next update: %s\n' % (tabs_string, next_time)
-        else:
+        if forced:
+            # we are forcing all symbols
             status = True
-            info += '%s    update     : Not scraped before\n' % (tabs_string)
-        
-        info += '%s    update     : %s\n' % (tabs_string, status)
+            info += '%s    update     : %s (forced)\n' % (tabs_string, status)
+        else:
+            # do status check
+            if status_db.shape[0] > 0:
+                last_ts = status_db.loc['tickers', 'timestamp']
+                last_time = ftime.get_from_ts_local(last_ts)
+                next_time = ftime.get_offset(last_time, months=6)
+                status = now >= next_time
+                info += '%s    last update: %s\n' % (tabs_string, last_time)
+                info += '%s    next update: %s\n' % (tabs_string, next_time)
+            else:
+                status = True
+                info += '%s    update     : Not scraped before\n' % (tabs_string)
+            
+            info += '%s    update     : %s\n' % (tabs_string, status)
         
         return status, info
 

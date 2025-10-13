@@ -9,18 +9,19 @@ class Scrape_Multi():
         for scraper in scrapers:
             scraper_class = scraper[0]
             key_values = scraper[1]
+            forced = scraper[2]
             for sub_class, scraper_class_data in scraper_classes_data.items():
                 if issubclass(scraper_class, sub_class):
-                    scraper_class_data.append((scraper_class, key_values))
+                    scraper_class_data.append((scraper_class, key_values, forced))
 
         # create multi chunks for pool
         multi_chunks = []
         for sub_class, scraper_classes in scraper_classes_data.items():
             # creat multi chunk per sub_class
             update_scrapers = []
-            for scraper_class, key_values in scraper_classes:
+            for scraper_class, key_values, forced in scraper_classes:
                 if not scraper_class in update_scrapers:
-                    update_scrapers.append([scraper_class, key_values])
+                    update_scrapers.append([scraper_class, key_values, forced])
             if len(update_scrapers) > 0:
                 multi_chunks.append((sub_class.__name__, update_scrapers))
         if len(multi_chunks) == 0: return
@@ -75,5 +76,5 @@ class Scrape_Multi():
         root.setLevel(logging.INFO)
 
         for update_scraper in update_scrapers:
-            update_scraper[0]().scrape_data(key_values=update_scraper[1])
+            update_scraper[0]().scrape_data(key_values=update_scraper[1], forced=update_scraper[2])
 

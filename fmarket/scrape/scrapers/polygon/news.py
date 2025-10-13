@@ -13,9 +13,9 @@ class Polygon_News(Polygon):
         super().__init__()
         self.db = Database(self.db_name)
 
-    def scrape_data(self, key_values=[]):
+    def scrape_data(self, key_values=[], forced=False):
         # check status
-        status, info = self.scrape_status(key_values=key_values)
+        status, info = self.scrape_status(key_values=key_values, forced=forced)
         # if isinstance(status, str):
 
         self.logger = logging.getLogger('Polygon_News'.ljust(25, ' '))
@@ -85,7 +85,7 @@ class Polygon_News(Polygon):
             # update on every page to not loose data
             self.db.commit()
 
-    def scrape_status(self, key_values=[], tabs=0):
+    def scrape_status(self, key_values=[], forced=False, tabs=0):
         # get timestamps
         ftime = FTime()
         now = ftime.now_local

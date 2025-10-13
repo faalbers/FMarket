@@ -13,9 +13,9 @@ class YahooF_Chart(YahooF):
         super().__init__()
         self.db = Database(self.db_name)
 
-    def scrape_data(self, key_values=[]):
+    def scrape_data(self, key_values=[], forced=False):
         # check status
-        symbols, info = self.scrape_status(key_values=key_values)
+        symbols, info = self.scrape_status(key_values=key_values, forced=forced)
         if len(symbols) == 0: return
 
         self.logger = logging.getLogger('YahooF_Chart'.ljust(25, ' '))
@@ -80,33 +80,39 @@ class YahooF_Chart(YahooF):
         print(symbol, valid)
         return valid
 
-    def scrape_status(self, key_values=[], tabs=0):
+    def scrape_status(self, key_values=[], forced=False, tabs=0):
         # timestamps
         ftime = FTime()
         five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
 
+        status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
         info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
         info += '%s  reference table: chart:\n' % (tabs_string)
         status = []
-        status_db = self.db.table_read('status_db')
-        if status_db.shape[0] > 0 and 'chart' in status_db.columns:
-            symbols_skip = status_db['chart'] == 0 # skip symbols that did not work last time
-            symbols_skip |= status_db['chart'] >= five_days_ts # skip symbols that were done within the last 5 days
-            symbols_skip |= ((status_db['chart'] - status_db['chart_last']) / (3600*24)) > 7 # more the 7 days between last data and update
-            status = sorted(set(key_values).difference(status_db[symbols_skip].index))
-        else:
-            # we add all key_values to status
+        if forced:
+            # we are forcing all symbols
             status = key_values
-            info += '%s    update     : Not scraped before\n' % (tabs_string)
-        
-        # check market day and time
-        if ftime.is_market_open:
-            # don't update if market is open
-            status = []
-            info += '%s    update     : No chart scraping during market hours\n' % (tabs_string)
-        
-        info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
+            info += '%s    update     : %s symbols (forced)\n' % (tabs_string, len(status))
+        else:
+            # do status check
+            if status_db.shape[0] > 0 and 'chart' in status_db.columns:
+                symbols_skip = status_db['chart'] == 0 # skip symbols that did not work last time
+                symbols_skip |= status_db['chart'] >= five_days_ts # skip symbols that were done within the last 5 days
+                symbols_skip |= ((status_db['chart'] - status_db['chart_last']) / (3600*24)) > 7 # more the 7 days between last data and update
+                status = sorted(set(key_values).difference(status_db[symbols_skip].index))
+            else:
+                # we add all key_values to status
+                status = key_values
+                info += '%s    update     : Not scraped before\n' % (tabs_string)
+            
+            # check market day and time
+            if ftime.is_market_open:
+                # don't update if market is open
+                status = []
+                info += '%s    update     : No chart scraping during market hours\n' % (tabs_string)
+            
+            info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
         
         return status, info
 

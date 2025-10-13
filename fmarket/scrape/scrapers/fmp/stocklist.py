@@ -12,9 +12,9 @@ class FMP_Stocklist(FMP):
         super().__init__()
         self.db = Database(self.db_name)
 
-    def scrape_data(self, key_values=[]):
+    def scrape_data(self, key_values=[], forced=False):
         # check status
-        status, info = self.scrape_status(key_values=key_values)
+        status, info = self.scrape_status(key_values=key_values, forced=forced)
         if not status: return
 
         # create logger with at least 20 character logger name
@@ -54,7 +54,7 @@ class FMP_Stocklist(FMP):
         write_data.index.name = 'symbol'
         self.db.table_write('stocklist', write_data, replace=True)
 
-    def scrape_status(self, key_values=[], tabs=0):
+    def scrape_status(self, key_values=[], forced=False, tabs=0):
         # get timestamps
         ftime = FTime()
         now = ftime.now_local
@@ -64,18 +64,24 @@ class FMP_Stocklist(FMP):
         info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
         info += '%s  table: stocklist\n' % (tabs_string)
         status = None
-        if status_db.shape[0] > 0:
-            last_ts = status_db.loc['stocklist', 'timestamp']
-            last_time = ftime.get_from_ts_local(last_ts)
-            next_time = ftime.get_offset(last_time, months=6)
-            status = now >= next_time
-            info += '%s    last update: %s\n' % (tabs_string, last_time)
-            info += '%s    next update: %s\n' % (tabs_string, next_time)
-        else:
+        if forced:
+            # we are forcing all symbols
             status = True
-            info += '%s    update     : Not scraped before\n' % (tabs_string)
-        
-        info += '%s    update     : %s\n' % (tabs_string, status)
+            info += '%s    update     : %s (forced)\n' % (tabs_string, status)
+        else:
+            # do status check
+            if status_db.shape[0] > 0:
+                last_ts = status_db.loc['stocklist', 'timestamp']
+                last_time = ftime.get_from_ts_local(last_ts)
+                next_time = ftime.get_offset(last_time, months=6)
+                status = now >= next_time
+                info += '%s    last update: %s\n' % (tabs_string, last_time)
+                info += '%s    next update: %s\n' % (tabs_string, next_time)
+            else:
+                status = True
+                info += '%s    update     : Not scraped before\n' % (tabs_string)
+            
+            info += '%s    update     : %s\n' % (tabs_string, status)
         
         return status, info
     

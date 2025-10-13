@@ -5,9 +5,9 @@ import threading, os
 from tkinter.scrolledtext import ScrolledText
 
 class Scrape_GUI(tk.Tk):
-    def __init__(self):
+    def __init__(self, symbols=[]):
         super().__init__()
-        self.scrape = Scrape()
+        self.scrape = Scrape(symbols=symbols)
 
         self.__build_gui()
 
@@ -22,12 +22,15 @@ class Scrape_GUI(tk.Tk):
         frame_actions.pack(anchor='w', fill='x', padx=10, pady=10)
 
         # add actions
-        button = tk.Button(frame_actions, text='Update All Status', command=self.update_all_status)
+        button = tk.Button(frame_actions, text='Update Status', command=self.update_status)
         button.pack(side='left')
-        self.button_update_all = tk.Button(frame_actions, text='Update All', command=self.update_all)
-        self.button_update_all.pack(side='left')
+        self.button_update = tk.Button(frame_actions, text='Update', command=self.update)
+        self.button_update.pack(side='left')
         button = tk.Button(frame_actions, text='Update Stop', command=self.update_stop)
         button.pack(side='left')
+        self.forced = tk.BooleanVar()
+        tk.Checkbutton(frame_actions, text='forced update',
+            variable=self.forced).pack(side='left')
 
         scrape_info_frame = tk.Frame(self)
         scrape_info_frame.pack()
@@ -52,20 +55,20 @@ class Scrape_GUI(tk.Tk):
         for setting, variable in self.settings.items():
             self.scrape.settings[setting] = variable.get()
     
-    def update_all_status(self):
-        status = self.scrape.update(status_only=True)
+    def update_status(self):
+        status = self.scrape.update(status_only=True, forced=self.forced.get())
         self.scrape_update_status_text(status)
     
-    def update_all_thread(self):
-        self.scrape.update()
-        self.button_update_all.config(state=tk.NORMAL)
+    def update_thread(self):
+        self.scrape.update(forced=self.forced.get())
+        self.button_update.config(state=tk.NORMAL)
         self.quit()
 
-    def update_all(self):
+    def update(self):
         if os.path.exists('scrape.log'): os.remove('scrape.log')
         self.scrape_update_text()
-        self.button_update_all.config(state=tk.DISABLED)
-        thread = threading.Thread(target=self.update_all_thread)
+        self.button_update.config(state=tk.DISABLED)
+        thread = threading.Thread(target=self.update_thread)
         thread.start()
     
     def update_stop(self):
