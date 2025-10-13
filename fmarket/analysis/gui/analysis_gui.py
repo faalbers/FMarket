@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from ..analysis import Analysis
+from .analysis_selection_gui import Analysis_Selection_GUI
 import pickle
 import pandas as pd
 
@@ -8,15 +9,15 @@ class Analysis_GUI(tk.Tk):
     def __init__(self, symbols=[], update_cache=False):
         super().__init__()
         analysis = Analysis(symbols)
-        self.data = analysis.get_filter(update_cache=update_cache)
-        if self.data.empty:
+        self.filter_data = analysis.get_filter_data(update_cache=update_cache)
+        if self.filter_data.empty:
             print('No symbols available to analyse')
             return
         self.build_gui()
         self.mainloop()
 
     def build_gui(self):
-        self.title('Market Analysis: %s symbols' % self.data.shape[0])
+        self.title('Market Analysis: %s symbols' % self.filter_data.shape[0])
         self.minsize(width=700, height=50) 
 
         # action buttons frame
@@ -24,7 +25,7 @@ class Analysis_GUI(tk.Tk):
         frame_actions.pack(anchor='w', fill='x', padx=10, pady=10)
 
         # filters frame
-        self.frame_filters = Frame_Filters(self, self.data)
+        self.frame_filters = Frame_Filters(self, self.filter_data)
         self.frame_filters.pack(anchor='w', padx=10, pady=10)
 
         # add actions
@@ -55,7 +56,7 @@ class Analysis_GUI(tk.Tk):
     def reset_frame_filters(self):
         self.frame_filters.destroy()
         
-        self.frame_filters = Frame_Filters(self, self.data)
+        self.frame_filters = Frame_Filters(self, self.filter_data)
         self.button_add_filter.config(command=self.frame_filters.add_frame_filter)
         self.frame_filters.pack(anchor='w', padx=10, pady=10)
 
@@ -66,16 +67,17 @@ class Analysis_GUI(tk.Tk):
         else:
             columns.discard('symbol')
             columns.discard('name')
-            columns = ['symbol','name'] + [c for c in self.data.columns if c in columns]
-        # Analysis_Selection_GUI(self, symbols, columns)
+            columns = ['symbol','name'] + [c for c in self.filter_data.columns if c in columns]
+        selection_data = self.filter_data.loc[symbols]
+        Analysis_Selection_GUI(self, selection_data, columns)
 
     def get_filtered(self):
         filters = self.frame_filters.get_filters()
-        select = pd.Series(True, index=self.data.index)
+        select = pd.Series(True, index=self.filter_data.index)
         columns = set()
         for filter in filters:
             or_filters = [filter['and']] + filter['or']
-            or_select = pd.Series(False, index=self.data.index)
+            or_select = pd.Series(False, index=self.filter_data.index)
             for or_filter in or_filters:
                 column = or_filter[0]
                 columns.add(column)
@@ -86,10 +88,10 @@ class Analysis_GUI(tk.Tk):
                 elif value.replace('.', '').isnumeric():
                     value = float(value)
                 
-                if column == self.data.index.name:
-                    test_series = self.data.index
+                if column == self.filter_data.index.name:
+                    test_series = self.filter_data.index
                 else:
-                    test_series = self.data[column]
+                    test_series = self.filter_data[column]
                 
                 if function == '==':
                     or_select = or_select | (test_series == value)
@@ -126,16 +128,16 @@ class Analysis_GUI(tk.Tk):
                     
             select = select & or_select
 
-        return (sorted(self.data[select].index), columns)
+        return (sorted(self.filter_data[select].index), columns)
 
 class Frame_Filters(tk.Frame):
-    def __init__(self, parent, data):
+    def __init__(self, parent, filter_data):
         super().__init__(parent)
         self.parent = parent
-        self.data = data
+        self.filter_data = filter_data
 
     def add_frame_filter(self, filter={'and': (), 'or': []}):
-        Frame_Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
+        Frame_Filter(self, self.filter_data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
 
     def remove_frame_filter(self, frame_filter_a):
         frame_filter_a.destroy()
@@ -159,17 +161,17 @@ class Frame_Filter(tk.Frame):
     def __init__(self, parent, data, filter={'and': (), 'or': []}):
         super().__init__(parent)
         self.parent = parent
-        self.data = data
+        self.filter_data = data
         
         # make wide enough se we can see hierachy of or filters
         self.grid_columnconfigure(0, minsize=650)
 
         # add filter AND to filter
-        self.filter = Filter(self, self.data, filter['and'])
+        self.filter = Filter(self, self.filter_data, filter['and'])
         self.filter.grid(row=0, column=0, sticky=tk.W)
 
         # add OR filters frame to filter
-        self.frame_filter_or = Frame_Filter_OR(self, self.data, filter['or'])
+        self.frame_filter_or = Frame_Filter_OR(self, self.filter_data, filter['or'])
         self.frame_filter_or.grid(row=1, column=0, sticky=tk.W, padx=20)
 
     def remove_filter(self, filter_a):
@@ -185,16 +187,16 @@ class Frame_Filter(tk.Frame):
         return filter
 
 class Frame_Filter_OR(tk.Frame):
-    def __init__(self, parent, data, filters=[]):
+    def __init__(self, parent, filter_data, filters=[]):
         super().__init__(parent)
         self.parent = parent
-        self.data = data
+        self.filter_data = filter_data
         if len(filters) > 0:
             for filter in filters:
                 self.add_filter(filter)
 
     def add_filter(self, filter=()):
-        Filter(self, self.data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
+        Filter(self, self.filter_data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
 
     def remove_filter(self, filter_a):
         filter_a.destroy()
@@ -211,10 +213,10 @@ class Frame_Filter_OR(tk.Frame):
         return filters
 
 class Filter(tk.Frame):
-    def __init__(self, parent, data, filter=()):
+    def __init__(self, parent, filter_data, filter=()):
         super().__init__(parent)
         self.parent = parent
-        self.data = data
+        self.filter_data = filter_data
 
         # remove filter from parentbutton
         tk.Button(self, text='X', command=lambda: parent.remove_filter(self)).grid(row=0, column=0)
@@ -224,7 +226,7 @@ class Filter(tk.Frame):
 
         # add param option menu
         first_params = ['type','sub_type', 'sector', 'industry']
-        params = [self.data.index.name] + first_params + sorted(set(self.data.columns).difference(first_params))
+        params = [self.filter_data.index.name] + first_params + sorted(set(self.filter_data.columns).difference(first_params))
         self.param_select = tk.StringVar()
         if len(filter) > 0:
             self.param_select.set(filter[0])
@@ -290,10 +292,10 @@ class Filter(tk.Frame):
 
         # get possible values for param
         self.param_last = param
-        if param == self.data.index.name:
-            values = sorted(self.data.index)
+        if param == self.filter_data.index.name:
+            values = sorted(self.filter_data.index)
         else:
-            values = sorted(self.data[param].dropna().unique())
+            values = sorted(self.filter_data[param].dropna().unique())
         
         # too many for selection or not string values, use entry
         if len(values) > 200 or not isinstance(values[0], str):

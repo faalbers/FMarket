@@ -13,22 +13,22 @@ class Analysis():
         self.tickers = Tickers(symbols)
         self.__data = {}
 
-    def get_filter(self, update_cache=False):
+    def get_filter_data(self, update_cache=False):
         symbols = self.tickers.get().index
         if update_cache:
             # cache all symbols first
-            self.__cache_filter()
-            filter = self.db.table_read('analysis', keys=symbols)
+            self.__cache_filter_data()
+            filter_data = self.db.table_read('analysis', keys=symbols)
         else:
             # cache only missing data
-            filter = self.db.table_read('analysis', keys=symbols)
-            missing = set(symbols).difference(filter.index)
+            filter_data = self.db.table_read('analysis', keys=symbols)
+            missing = set(symbols).difference(filter_data.index)
             if len(missing) > 0:
-                self.__cache_filter(missing)
-                filter = self.db.table_read('analysis', keys=symbols)
-        return filter
+                self.__cache_filter_data(missing)
+                filter_data = self.db.table_read('analysis', keys=symbols)
+        return filter_data
 
-    def __cache_filter(self, symbols=[]):
+    def __cache_filter_data(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
@@ -38,20 +38,20 @@ class Analysis():
         # handle info
         print('get data: info')
         self.__data['info'] = tickers.get_info()
-        filter =  self.__data['info'].copy(deep=True)
+        filter_data =  self.__data['info'].copy(deep=True)
 
         # name market cap
-        market_cap = filter['market_cap'] / 1000000
-        filter.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
-        filter.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
-        filter.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
-        filter.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
+        market_cap = filter_data['market_cap'] / 1000000
+        filter_data.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
+        filter_data.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
+        filter_data.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
+        filter_data.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
 
         # handle funds info
-        is_fund_overview = filter['fund_overview'].notna()
-        filter.loc[is_fund_overview, 'fund_category'] = filter.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
-        filter.loc[is_fund_overview, 'fund_family'] = filter.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
-        filter = filter.drop('fund_overview', axis=1)
+        is_fund_overview = filter_data['fund_overview'].notna()
+        filter_data.loc[is_fund_overview, 'fund_category'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
+        filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
+        filter_data = filter_data.drop('fund_overview', axis=1)
 
         # get chart
         print('get data: chart')
@@ -65,7 +65,7 @@ class Analysis():
 
         # get minervini
         minervini = self.__get_minervini()
-        filter = filter.merge(minervini, how='left', left_index=True, right_index=True)
+        filter_data = filter_data.merge(minervini, how='left', left_index=True, right_index=True)
 
         # get dividends
         dividend_yields = self.__get_dividend_yields()
@@ -77,7 +77,7 @@ class Analysis():
             trends.drop(period_end_name, axis=1, inplace=True)
             if period == 'yearly':
                 trends[name+'_end_year'] = end_period
-            filter = filter.merge(trends, how='left', left_index=True, right_index=True)
+            filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
         
         # get fundamental
         print('get data: fundamental')
@@ -104,34 +104,34 @@ class Analysis():
                     trends[name+'_end_month'] = end_period.dt.month
                 elif period == 'yearly':
                     trends[name+'_end_year'] = end_period
-                filter = filter.merge(trends, how='left', left_index=True, right_index=True)
+                filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
 
         # rename ttm parameters and merge
         rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
         fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
-        filter = filter.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
+        filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
         # merge margin of safety
         margins_of_safety = self._get_margins_of_safety(fundamentals)
-        filter = filter.merge(margins_of_safety, how='left', left_index=True, right_index=True)
+        filter_data = filter_data.merge(margins_of_safety, how='left', left_index=True, right_index=True)
 
         # keep market_cap_name as market_cap
-        filter.drop('market_cap', axis=1, inplace=True)
-        filter.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
+        filter_data.drop('market_cap', axis=1, inplace=True)
+        filter_data.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
 
         # fix 'infinity' from info
-        for column in filter.columns[filter.apply(lambda x: 'Infinity' in x.values)]:
-            filter.loc[filter[column] == 'Infinity', column] = np.nan
+        for column in filter_data.columns[filter_data.apply(lambda x: 'Infinity' in x.values)]:
+            filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
 
         # infer al object columns
-        filter = filter.infer_objects()
+        filter_data = filter_data.infer_objects()
 
         # clear data
         self.__data = {}
 
         # write to db
         self.db.backup()
-        self.db.table_write('analysis', filter)
+        self.db.table_write('analysis', filter_data)
 
     def _get_margins_of_safety(self, fundamentals):
         ftime = FTime()
