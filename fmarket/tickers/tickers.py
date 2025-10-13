@@ -2,12 +2,12 @@ from ..vault import Vault
 import pandas as pd
 
 class Tickers():
-    def __init__(self, symbols=[], active=True):
+    def __init__(self, symbols=[], yahoof=True, active=True):
         self.vault = Vault()
-        self.__make_symbols(symbols, active)
+        self.__make_symbols(symbols, yahoof, active)
         self.empty = self.__symbols.empty
 
-    def __make_symbols(self, symbols, active):
+    def __make_symbols(self, symbols, yahoof, active):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
 
         # start creating symbols
@@ -59,17 +59,27 @@ class Tickers():
             self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
 
             # keep only the ones in yahoof
-            self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['YahooF_Info:info'].index),'yahoof'] = True
-            self.__symbols = self.__symbols[self.__symbols['yahoof'] == True]
-            self.__symbols.drop(['yahoof'], axis=1, inplace=True)
+            if yahoof:
+                self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['YahooF_Info:info'].index),'yahoof'] = True
+                self.__symbols = self.__symbols[self.__symbols['yahoof'] == True]
+                self.__symbols.drop(['yahoof'], axis=1, inplace=True)
+        elif yahoof:
+            # it asks for yahoof symbols, but since there is no info, return nothing
+            self.__symbols = pd.DataFrame()
+            return
 
         # handle chart activity
-        if active and not symbols_data_vault['YahooF_Chart:status_db'].empty:
-            self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'],
-                how='outer', left_index=True, right_index=True)
-            self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
-            self.__symbols = self.__symbols[self.__symbols['days'] <= 7]
-            self.__symbols.drop(['chart', 'chart_last', 'days'], axis=1, inplace=True)
+        if active:
+            if not symbols_data_vault['YahooF_Chart:status_db'].empty:
+                self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'],
+                    how='outer', left_index=True, right_index=True)
+                self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
+                self.__symbols = self.__symbols[self.__symbols['days'] <= 7]
+                self.__symbols.drop(['chart', 'chart_last', 'days'], axis=1, inplace=True)
+            else:
+                # it asks for active symbols, but since there is no chart, return nothing
+                self.__symbols = pd.DataFrame()
+                return
 
         # final cleanup
         self.__symbols.sort_index(inplace=True)
