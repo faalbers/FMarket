@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
 import numpy as np
+from ..analysis_params import Analysis_Params
+from idlelib.tooltip import Hovertip
 
 class Analysis_Selection_GUI(tk.Toplevel):
     def __init__(self, parent, selection_data, columns):
@@ -77,6 +79,7 @@ class Frame_Scroll_Columns(ttk.Frame):
     def __init__(self, parent, columns):
         super().__init__(parent)
         self.parent = parent
+        self.analysis_params = Analysis_Params()
 
         self.canvas = tk.Canvas(self)
         self.canvas.pack(side='left', fill='both')
@@ -96,6 +99,11 @@ class Frame_Scroll_Columns(ttk.Frame):
             check_button.pack(anchor='w')
             if check_button.winfo_reqwidth() > widest_check: widest_check = check_button.winfo_reqwidth()
             height_check += check_button.winfo_reqheight()
+
+            # add info hover tip
+            param_info_message = self.analysis_params.get_info_message(column)
+            if param_info_message != '':
+                Hovertip(check_button, param_info_message)
 
         self.canvas.config(width=widest_check)
         self.canvas.config(scrollregion=(0,0,widest_check, height_check))
