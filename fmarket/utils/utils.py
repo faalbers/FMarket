@@ -57,14 +57,14 @@ def get_trends(df, ratio_base=None, fill_gaps=True):
         trends.loc[column, 'trend_step'] = coeffs[0]
         trends.loc[column, 'trend'] = coeffs[0] * column_data.shape[0]
         if ratio_base is not None:
-            trends.loc[column, 'trend_step_ratio'] = coeffs[0] / np.abs(ratio_base)
-            trends.loc[column, 'trend_ratio'] = (coeffs[0] / np.abs(ratio_base)) * column_data.shape[0]
+            trends.loc[column, 'trend_step_ratio'] = (coeffs[0] / np.abs(ratio_base)) * 100.0
+            trends.loc[column, 'trend_ratio'] = (coeffs[0] / np.abs(ratio_base)) * column_data.shape[0] * 100.0
         else:
-            trends.loc[column, 'trend_step_ratio'] = coeffs[0] / trend_mean
-            trends.loc[column, 'trend_ratio'] = (coeffs[0] / trend_mean) * column_data.shape[0]
+            trends.loc[column, 'trend_step_ratio'] = (coeffs[0] / trend_mean) * 100.0
+            trends.loc[column, 'trend_ratio'] = (coeffs[0] / trend_mean) * column_data.shape[0] * 100.0
         
         # calculate volatility
         residual_std = np.std(column_data.values - trend)
-        trends.loc[column, 'volatility'] = residual_std / trend_mean
+        trends.loc[column, 'volatility'] = (residual_std / trend_mean) * 100.0
     
     return trends
