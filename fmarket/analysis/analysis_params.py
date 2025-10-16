@@ -232,17 +232,19 @@ Compare with others in same industry and sector (peers).
         for period in ['yearly', 'quarterly', 'ttm']:
             if period in info['suffix']:
                 if 'trend' in info['suffix']:
-                    info['periodic'] = f"This is a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is a {period} trend of base parameter {info['base_name']} in %."
                 elif 'count' in info['suffix']:
-                    info['periodic'] = f"This is the periods count of a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is the periods count of a {period} trend of base parameter {info['base_name']}."
                 elif 'volatility' in info['suffix']:
-                    info['periodic'] = f"This is the volatility of a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is the volatility of a {period} trend of base parameter {info['base_name']} in %."
                 elif 'end_month' in info['suffix']:
-                    info['periodic'] = f"This is the ending month of a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is the ending month of a {period} trend of base parameter {info['base_name']}."
                 elif 'end_year' in info['suffix']:
-                    info['periodic'] = f"This is the ending year of a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is the ending year of a {period} trend of base parameter {info['base_name']}."
                 else:
-                    info['periodic'] = f"This is the last period's value of a {period} trend of {info['base_name']}."
+                    info['periodic'] = f"This is the last period's value of a {period} trend of base parameter {info['base_name']} in %."
+                if 'periodic' in info:
+                    info['periodic'] += '\n\nBase parameter info:'
                 break
 
         return info
