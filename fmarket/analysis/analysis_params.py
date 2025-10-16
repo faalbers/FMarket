@@ -5,6 +5,102 @@ class Analysis_Params():
         pass
 
     params = {
+        'type': {
+            'info':
+                "Type of a stock",
+            'unit': 'string',
+            'values': [
+                'EQUITY',
+                'ETF',
+                'INDEX',
+                'MONEYMARKET',
+                'MUTUALFUND',
+                'NONE',
+            ],
+        },
+        'sub_type': {
+            'info':
+"""Polygon.io provides stock type codes, such as CS for Common Stock, that you can retrieve through their Ticker Types API
+endpoint. Unlike standard industry classification codes, Polygon.io's ticker types are used to filter and categorize assets
+within their own system. 
+""",
+            'unit': 'string',
+            'values': [
+                'CS (Common Stock)',
+                'PFD (Preferred Stock)',
+                'WARRANT (Warrant)',
+                'RIGHT (Rights)',
+                # 'BOND (Corporate Bond)',
+                'ETF (Exchange Traded Fund)',
+                'ETN (Exchange Traded Note)',
+                'ETV (Exchange Traded Vehicle)',
+                'SP (Structured Product)',
+                'ADRC (American Depository Receipt Common)',
+                # 'ADRP (American Depository Receipt Preferred)',
+                # 'ADRW (American Depository Receipt Warrants)',
+                # 'ADRR (American Depository Receipt Rights)',
+                'FUND (Fund)',
+                # 'BASKET (Basket)',
+                'UNIT (Unit)',
+                # 'LT (Liquidating Trust)',
+                'OS (Ordinary Shares)',
+                'GDR (Global Depository Receipts)',
+                'OTHER (Other Security Type)',
+                'NYRS (New York Registry Shares)',
+                # 'AGEN (Agency Bond)',
+                # 'EQLK (Equity Linked Bond)',
+                'ETS (Single-security ETF)',
+                'IX (Index)',
+            ],
+        },
+        'sector': {
+            'info':
+"""A stock sector is a large grouping of companies that operate in the same part of the economy, sorted by their primary business
+activities, such as healthcare, technology, energy, or financials. Investors categorize companies into sectors to understand
+overall market trends and diversify their portfolios by spreading investments across different economic segments.
+""",
+            'unit': 'string',
+            'values': [
+                'Basic Materials',
+                'Communication Services',
+                'Consumer Cyclical',
+                'Consumer Defensive',
+                'Energy',
+                'Financial Services',
+                'Healthcare',
+                'Industrials',
+                'Real Estate',
+                'Technology',
+                'None',
+            ],
+        },
+        'industry': {
+            'info':
+"""The industry of a stock is its company's primary business activity, determined by where most of its revenue is generated,
+which helps group stocks with similar operations and economic characteristics for portfolio diversification and analysis.
+By classifying companies into industries and larger sectors, investors can understand how different parts of the economy are
+performing and identify risks and opportunities.
+""",
+            'unit': 'string',
+        },
+        'fund_category': {
+            'info':
+"""A fund category in mutual funds is a way to classify funds based on their investment strategy, types of assets held,
+and investment objectives. Common categories include equity funds (investing in stocks), debt funds
+(investing in fixed-income securities), and hybrid funds (a mix of both). These categories help investors understand a
+fund's potential risks, returns, and how it aligns with their financial goals.  
+""",
+            'unit': 'string',
+        },
+        'fund_family': {
+            'info':
+"""A fund family is a collection of different mutual funds and other investment products, like ETFs, offered by a single
+investment management company, such as Vanguard or Fidelity. These funds within the same family share administrative and
+operational systems and are overseen by the same company, allowing investors to access a wide range of investment options
+and often providing benefits like lower fees, fee-free fund exchanges, and consolidated reporting within a single platform.   
+""",
+            'unit': 'string',
+        },
         'current_ratio': {
             'info':
 """Current Ratio is a financial metric used in company statements to assess a company's short-term liquidity,
@@ -62,11 +158,53 @@ Conversely, a lower margin may indicate financial struggles, weak pricing strate
         },
         'dividends': {
             'info':
-"""A dividend is a distribution of a company's earnings to its shareholders. When a company earns a profit, its board of directors
+"""This is the dividends yield (percentage of amount versus current share price).
+Dividends are distributions of a company's earnings to its shareholders. When a company earns a profit, its board of directors
 may decide to pay a portion of that profit to its investors as a reward for their investment, rather than reinvesting it all back
 into the business.
 """,
             'unit': '%',
+        },
+        'pe_forward': {
+            'info':
+"""The forward P/E ratio, also known as the leading or prospective P/E ratio, is a stock valuation metric that offers a glimpse
+into a company's future earnings potential. The forward P/E ratio estimates how much investors are willing to pay for each dollar
+of a company's projected future earnings. Unlike the trailing P/E ratio, which uses past earnings data, the forward P/E is
+forward-looking and relies on estimates of future earnings, which are typically provided by company management or financial analysts.
+""",
+            'unit': '$ value per $ earnings',
+            'guidance': "Remember, it is soley based on predicted data. Compare with others in same industry and sector (peers).",
+        },
+        'peg': {
+            'info':
+"""A PEG ratio is a stock valuation metric that divides a company's P/E ratio (the price-to-earnings ratio based actual earnings)
+by a historical earnings growth rate, which could be from the last fiscal year
+or a multi-year average. It indicates if a stock's current price is justified by its past earnings performance and growth. 
+""",
+            'unit': 'around 1.0',
+            'guidance':
+"""
+Compare with others in same industry and sector
+    PEG ttm = 1:
+        Suggests the stock is fairly valued, where the market price aligns with historical earnings growth
+    PEG ttm < 1:
+        May indicate the stock is undervalued, offering potential growth at a reasonable price
+    PEG ttm > 1:
+        Could indicate the stock is overvalued relative to its historical growth, signaling caution.
+""",
+        },
+        'pe': {
+            'info':
+"""The price-to-earnings (P/E) ratio is a valuation metric that measures a company's current stock price relative
+to its actual earnings per share (EPS). So how much $ you pay for $1 earnings.
+It's calculated by dividing the current stock price by the company's earnings per share (EPS).
+It's also called valuation multiples, or how many years of earnings needed to get back price.
+""",
+            'unit': '$ value per $ earnings',
+            'guidance':
+"""A lower P/E ratio might suggest a stock is undervalued, while a higher ratio could indicate overvaluation.
+Compare with others in same industry and sector (peers).
+""",
         },
     }
 
@@ -119,10 +257,12 @@ into the business.
         
         message += '%s\n\n' % param_info['name']
 
+        # type explanation
         if 'periodic' in param_info:
             message += 'periodic: ' + param_info['periodic']
             message += '\n\n'
 
+        # base name info
         message += param_info['base_name']
         if 'unit' in param_info:
             message += ' ( unit = %s )' % param_info['unit']
@@ -135,6 +275,9 @@ into the business.
             message += 'guidance: ' + param_info['guidance']
             message += '\n\n'
 
-        
+        if 'values' in param_info:
+            message += 'values:\n'
+            for value in param_info['values']:
+                message += '    %s\n' % value
 
         return message
