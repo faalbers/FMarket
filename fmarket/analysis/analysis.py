@@ -166,7 +166,7 @@ class Analysis():
         years = 10
         years = np.arange(10+1)
         for symbol, row in mos.iterrows():
-            values = row['fcf'] * (1 + row['growth']) ** years
+            values = row['fcf'] * (1 + (row['growth']/100.0)) ** years
             fcf_growth = pd.Series(values).to_frame('fcf')
             fcf_growth['fcf_dcf'] = fcf_growth['fcf'] / ((1.0 + discount) ** years)
             terminal_value = fcf_growth['fcf_dcf'].iloc[-1] * row['pfcf'] # using exit_multiple
@@ -175,7 +175,7 @@ class Analysis():
             mos.loc[symbol, 'margin_of_safety'] = margin_of_safety
             deviation = np.abs(row['pfcf']-row['pfcf_ttm']) / max(np.abs(row['pfcf']),np.abs(row['pfcf_ttm']))
             mos.loc[symbol, 'margin_of_safety_deviation'] = deviation
-        mos = mos[['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation']] * 100 # turn into percent values
+        mos = mos[['margin_of_safety', 'margin_of_safety_deviation']] * 100 # turn into percent values
         
         return mos
     
