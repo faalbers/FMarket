@@ -101,6 +101,36 @@ and often providing benefits like lower fees, fee-free fund exchanges, and conso
 """,
             'unit': 'string',
         },
+        'market_cap': {
+            'info':
+"""The market capitalization, or market cap, of a stock is the total market value of a company's outstanding shares,
+calculated by multiplying the current stock price by the number of shares outstanding. It's a key indicator of a
+company's size, which can help investors understand its relative market standing, risk, and growth potential.
+For example, a company with 10 million shares outstanding and a stock price of $35 would have a market cap of $350 million.
+""",
+            'values': [
+                'Small (250M <-> 2B)',
+                'Mid (2B <-> 10B)',
+                'Large (10B <-> 200B)',
+                'Mega (200B +)',
+            ],
+        },
+        'minervini_score': {
+            'info':
+"""The Minervini score uses Mark Minervini's "Trend Template" criteria, focusing on stocks in strong uptrends by checking
+if the 50-day moving average (MA) is above the 150-day MA, and the 150-day MA is above the 200-day MA. It also requires
+the current stock price to be above the 150-day and 200-day MAs and for the price to be within 25% of its 52-week high.
+In addition to these technical factors, successful screeners also incorporate fundamental and relative strength (RS) criteria. 
+""",
+            'unit': 'value between 0 and 100',
+        },
+        'margin_of_safety': {
+            'info':
+"""The margin of safety refers to the difference between a stock's intrinsic value (what it's worth in 10 years based on fundamentals)
+and its market cap (what it's currently worth)""",
+            'unit': '%',
+            'guidance': 'Buy above a certain value. Most select 35%. Lower value is more risk.',
+        },
         'current_ratio': {
             'info':
 """Current Ratio is a financial metric used in company statements to assess a company's short-term liquidity,
@@ -247,6 +277,10 @@ Compare with others in same industry and sector (peers).
                     info['periodic'] += '\n\nBase parameter info:'
                 break
 
+        if 'deviation' in info['suffix']:
+            info['deviation'] = 'This is the deviation percentage between hitoric and ttm data.'
+            info['deviation'] += '\n\nBase parameter info:'
+        
         return info
     
     def get_info_message(self, param):
@@ -262,6 +296,10 @@ Compare with others in same industry and sector (peers).
         # type explanation
         if 'periodic' in param_info:
             message += 'periodic: ' + param_info['periodic']
+            message += '\n\n'
+        
+        if 'deviation' in param_info:
+            message += 'deviation: ' + param_info['deviation']
             message += '\n\n'
 
         # base name info
