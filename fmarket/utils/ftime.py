@@ -35,10 +35,22 @@ class FTime:
         return self.now_ny.normalize()
     
     def get_quarter_begin(self, date):
-        return (date - pd.offsets.QuarterEnd()).floor('D')
+        return self.get_offset(date - pd.offsets.QuarterEnd(), days=1).floor('D')
     
     def get_quarter_end(self, date):
         return (date + pd.offsets.QuarterEnd()).ceil('D')
+    
+    def get_month_begin(self, date):
+        return self.get_offset(date - pd.offsets.MonthEnd(), days=1).floor('D')
+    
+    def get_month_end(self, date):
+        return (date + pd.offsets.MonthEnd()).ceil('D')
+
+    def get_year_begin(self, date):
+        return self.get_offset(date - pd.offsets.YearEnd(), days=1).floor('D')
+
+    def get_year_end(self, date):
+        return (date + pd.offsets.YearEnd()).ceil('D')
 
     def get_offset(self, date, **arguments):
         return date + pd.offsets.DateOffset(**arguments)
