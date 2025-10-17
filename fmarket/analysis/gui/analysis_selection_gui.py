@@ -4,6 +4,10 @@ import numpy as np
 from ..analysis_params import Analysis_Params
 from idlelib.tooltip import Hovertip
 
+from .analysis_charts_gui import Analysis_Charts_GUI
+from .analysis_dividends_gui import Analysis_Dividends_GUI
+from .analysis_fundamentals_gui import Analysis_Fundamentals_GUI
+
 class Analysis_Selection_GUI(tk.Toplevel):
     def __init__(self, parent, selection_data, columns):
         super().__init__(parent)
@@ -41,16 +45,19 @@ class Analysis_Selection_GUI(tk.Toplevel):
         tk.OptionMenu(frame_actions, self.http_link, *http_links).pack(side='right')
 
     def charts(self):
-        pass
-        # symbols = self.frame_data.get_symbols()
-        # if len(symbols) == 0: return
-        # Charts_GUI(self, symbols)
+        symbols = self.frame_data.get_symbols()
+        if len(symbols) == 0: return
+        Analysis_Charts_GUI(self, symbols)
 
     def dividends(self):
-        pass
+        symbols = self.frame_data.get_symbols()
+        if len(symbols) == 0: return
+        Analysis_Dividends_GUI(self, symbols)
     
     def fundamentals(self):
-        pass
+        symbols = self.frame_data.get_symbols()
+        if len(symbols) == 0: return
+        Analysis_Fundamentals_GUI(self, symbols)
     
     def news(self):
         pass
@@ -74,6 +81,9 @@ class Frame_Data_Tree(tk.Frame):
 
     def columns_changed(self, columns):
         self.frame_tree.change_columns(columns)
+
+    def get_symbols(self):
+        return self.frame_tree.get_symbols()
 
 class Frame_Scroll_Columns(ttk.Frame):
     def __init__(self, parent, columns):
@@ -198,7 +208,6 @@ class Frame_Tree(tk.Frame):
 
     def sort_tree(self, column):
         sort_descending = self.sort_descending
-        print(sort_descending)
 
         # reset header names
         for sort_column in self.sort_list: self.tree.heading(column, text=sort_column)
@@ -223,3 +232,10 @@ class Frame_Tree(tk.Frame):
     def select_all(self, event=None):
         children = self.tree.get_children()
         self.tree.selection_set(children)
+
+    def get_symbols(self):
+        symbols = []
+        for selected_item in self.tree.selection():
+            data = self.tree.item(selected_item, 'values')
+            symbols.append(data[0])
+        return symbols
