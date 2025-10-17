@@ -28,6 +28,9 @@ class Analysis():
                 filter_data = self.db.table_read('analysis', keys=symbols)
         return filter_data
 
+    def get_chart(self):
+        return self.tickers.get_chart()
+    
     def __cache_filter_data(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:

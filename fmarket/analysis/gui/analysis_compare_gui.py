@@ -7,14 +7,15 @@ class Analysis_Compare_GUI(tk.Toplevel):
 
         self.geometry("1200x800")
 
-        frame_top_options = tk.Frame(self)
-        frame_top_options.pack(fill='x')
+        self.frame_top_options = tk.Frame(self)
+        self.frame_top_options.pack(fill='x')
 
-        self.frame_symbols_data = Frame_Symbols_Data(self, symbols)
-        self.frame_symbols_data.pack(expand=True, fill='both')
+        frame_symbols_data = Frame_Symbols_Data(self, symbols)
+        frame_symbols_data.pack(expand=True, fill='both')
+        self.frame_data = frame_symbols_data.frame_data
         
-        frame_bottom_options = tk.Frame(self)
-        frame_bottom_options.pack(side='bottom', fill='x')
+        self.frame_bottom_options = tk.Frame(self)
+        self.frame_bottom_options.pack(side='bottom', fill='x')
 
 class Frame_Symbols_Data(ttk.Frame):
     def __init__(self, parent, symbols):
@@ -23,12 +24,12 @@ class Frame_Symbols_Data(ttk.Frame):
 
         frame_symbols = Frame_Symbols(self, symbols)
         frame_symbols.pack(side='left', fill='y')
-        # self.frame_graph = Frame_Data(self)
-        # self.frame_graph.pack(side='left', expand=True, fill='both')
+        self.frame_data = Frame_Data(self)
+        self.frame_data.pack(side='left', expand=True, fill='both')
 
     def symbols_changed(self, symbols):
         self.parent.symbols_changed(symbols)
-
+    
 class Frame_Symbols(ttk.Frame):
     def __init__(self, parent, symbols):
         super().__init__(parent)
@@ -82,3 +83,8 @@ class Frame_Symbols(ttk.Frame):
 
     def get_symbols(self):
         return [symbol for symbol, symbol_state in self.symbols_state.items() if symbol_state.get() == 1]
+
+class Frame_Data(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
