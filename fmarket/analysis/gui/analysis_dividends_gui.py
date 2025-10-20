@@ -89,7 +89,6 @@ class Analysis_Dividends_GUI(Analysis_Compare_GUI):
         if child_found: del(self.canvas)
 
         dividends, x_label, y_label = self.get_dividends()
-        print(dividends)
 
         fig, ax = plt.subplots()
         if not dividends.empty:
