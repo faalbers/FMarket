@@ -121,10 +121,12 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         return self.charts[self.symbols].ffill().dropna().loc[start_date:end_date].copy()
 
     def plot_charts(self):
+        child_found = False
         for child in self.frame_data.winfo_children():
             child.destroy()
-        # self.frame_graph = Frame_Graph(self.frame_data)
-        # self.frame_graph.pack(expand=True, fill='both')
+            child_found = True
+        if child_found: del(self.canvas)
+        
         compare = self.get_charts()
         compare = compare / compare.iloc[0]
         

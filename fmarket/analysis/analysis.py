@@ -31,6 +31,12 @@ class Analysis():
     def get_chart(self):
         return self.tickers.get_chart()
     
+    def get_dividend_yields(self):
+        self.__data['chart'] = self.tickers.get_chart()
+        dividend_yields = self.__get_dividend_yields()
+        self.__data = {}
+        return dividend_yields
+    
     def __cache_filter_data(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
