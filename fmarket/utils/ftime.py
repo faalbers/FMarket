@@ -11,6 +11,10 @@ class FTime:
         return self.now_local.tzname()
     
     @property
+    def now_naive(self):
+        return pd.Timestamp.now()
+    
+    @property
     def now_local(self):
         return pd.Timestamp.now().tz_localize(tzlocal())
     
@@ -38,19 +42,25 @@ class FTime:
         return self.get_offset(date - pd.offsets.QuarterEnd(), days=1).floor('D')
     
     def get_quarter_end(self, date):
-        return (date + pd.offsets.QuarterEnd()).ceil('D')
+        date = (date + pd.offsets.QuarterEnd()).ceil('D')
+        date = self.get_offset(date, seconds=-1)
+        return date
     
     def get_month_begin(self, date):
         return self.get_offset(date - pd.offsets.MonthEnd(), days=1).floor('D')
     
     def get_month_end(self, date):
-        return (date + pd.offsets.MonthEnd()).ceil('D')
+        date = (date + pd.offsets.MonthEnd()).ceil('D')
+        date = self.get_offset(date, seconds=-1)
+        return date
 
     def get_year_begin(self, date):
         return self.get_offset(date - pd.offsets.YearEnd(), days=1).floor('D')
 
     def get_year_end(self, date):
-        return (date + pd.offsets.YearEnd()).ceil('D')
+        date = (date + pd.offsets.YearEnd()).ceil('D')
+        date = self.get_offset(date, seconds=-1)
+        return date
 
     def get_offset(self, date, **arguments):
         return date + pd.offsets.DateOffset(**arguments)
@@ -60,6 +70,14 @@ class FTime:
     
     def get_from_ts_utc(self, ts):
         return pd.to_datetime(ts, unit='s', utc=True).tz_convert('UTC')
+
+    def get_date_naive(self, date=None, format=None, **arguments):
+        if not isinstance(date, type(None)):
+            if isinstance(format, type(None)):
+                return pd.Timestamp(date)
+            else:
+                return pd.to_datetime(date, format=format)
+        return pd.Timestamp(**arguments)
 
     def get_date_local(self, date=None, format=None, **arguments):
         if not isinstance(date, type(None)):
