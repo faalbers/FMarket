@@ -26,6 +26,10 @@ class Analysis():
             if len(missing) > 0:
                 self.__cache_filter_data(missing)
                 filter_data = self.db.table_read('analysis', keys=symbols)
+        
+        # add peers data
+        self.__add_peers_data(filter_data)
+
         return filter_data
 
     def get_chart(self):
@@ -36,6 +40,20 @@ class Analysis():
         dividend_yields = self.__get_dividend_yields()
         self.__data = {}
         return dividend_yields
+    
+    def get_fundamentals(self):
+        self.__data['chart'] = self.tickers.get_chart()
+        self.__data['fundamental'] = self.tickers.get_fundamental()
+
+        # get fundamentals
+        fundamentals = {}
+        fundamentals['yearly'] = self.__get_fundamental('yearly')
+        fundamentals['quarterly'] = self.__get_fundamental('quarterly')
+        fundamentals['ttm'] = self.__get_fundamental_ttm().T
+
+        self.__data = {}
+
+        return fundamentals
     
     def __cache_filter_data(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
@@ -142,6 +160,26 @@ class Analysis():
         self.db.backup()
         self.db.table_write('analysis', filter_data)
 
+    def __add_peers_data(self, filter_data):
+        peers_params = [
+            'pe_ttm',
+        ]
+        peers_types = [
+            'sector',
+            'industry',
+        ]
+        for peers_type in peers_types:
+            if not peers_type in filter_data.columns: continue
+            for peers_type_name in filter_data[peers_type].dropna().unique():
+                peers_data = filter_data[filter_data[peers_type] == peers_type_name]
+                for peers_param in peers_params:
+                    if not peers_param in peers_data.columns: continue
+                    peers_param_data = peers_data[peers_param].dropna()
+                    if peers_param_data.empty: continue
+                    median_param = '%s_peers_%s' % (peers_param, peers_type)
+                    median = peers_param_data.median()
+                    filter_data.loc[peers_param_data.index, median_param] = median
+    
     def _get_margins_of_safety(self, fundamentals):
         ftime = FTime()
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])

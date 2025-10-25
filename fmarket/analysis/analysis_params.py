@@ -214,7 +214,7 @@ or a multi-year average. It indicates if a stock's current price is justified by
             'unit': 'around 1.0',
             'guidance':
 """
-Compare with others in same industry and sector
+Compare with others in same industry and sector (peers)
     PEG ttm = 1:
         Suggests the stock is fairly valued, where the market price aligns with historical earnings growth
     PEG ttm < 1:
