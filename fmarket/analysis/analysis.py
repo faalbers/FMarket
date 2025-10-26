@@ -161,6 +161,7 @@ class Analysis():
         self.db.table_write('analysis', filter_data)
 
     def __add_peers_data(self, filter_data):
+        filter_data_all = self.db.table_read('analysis')
         peers_params = [
             'pe_ttm',
         ]
@@ -169,16 +170,18 @@ class Analysis():
             'industry',
         ]
         for peers_type in peers_types:
-            if not peers_type in filter_data.columns: continue
-            for peers_type_name in filter_data[peers_type].dropna().unique():
-                peers_data = filter_data[filter_data[peers_type] == peers_type_name]
+            if not peers_type in filter_data_all.columns: continue
+            for peers_type_name in filter_data_all[peers_type].dropna().unique():
+                peers_data = filter_data_all[filter_data_all[peers_type] == peers_type_name]
                 for peers_param in peers_params:
                     if not peers_param in peers_data.columns: continue
                     peers_param_data = peers_data[peers_param].dropna()
                     if peers_param_data.empty: continue
                     median_param = '%s_peers_%s' % (peers_param, peers_type)
                     median = peers_param_data.median()
-                    filter_data.loc[peers_param_data.index, median_param] = median
+                    peers_param_data = peers_param_data[peers_param_data.index.isin(filter_data.index)]
+                    if peers_param_data.shape[0] > 0:
+                        filter_data.loc[peers_param_data.index, median_param] = median
     
     def _get_margins_of_safety(self, fundamentals):
         ftime = FTime()
