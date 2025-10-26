@@ -79,64 +79,78 @@ class Analysis_GUI(tk.Tk):
             or_filters = [filter['and']] + filter['or']
             or_select = pd.Series(False, index=self.filter_data.index)
             for or_filter in or_filters:
-                column = or_filter[0]
-                columns.add(column)
+                column_a = or_filter[0]
+                columns.add(column_a)
                 function = or_filter[1]
                 value = or_filter[2]
-                if value.isnumeric():
-                    value = int(value)
-                elif value.replace('.', '').isnumeric():
-                    value = float(value)
-                
-                if column == self.filter_data.index.name:
+                column_b = or_filter[2]
+                is_column_b = or_filter[3]
+
+                # set values to be tested
+                if column_a == self.filter_data.index.name:
                     test_series = self.filter_data.index
                 else:
-                    test_series = self.filter_data[column]
-                
+                    test_series = self.filter_data[column_a]
+
+                # set values to test
+                if is_column_b:
+                    if column_b == self.filter_data.index.name:
+                        value = self.filter_data.index
+                    else:
+                        value = self.filter_data[column_b]
+                elif not isinstance(value, type(None)):
+                    if value.isnumeric():
+                        value = int(value)
+                    elif value.replace('.', '').isnumeric():
+                        value = float(value)
+
                 if function == '==':
                     or_select = or_select | (test_series == value)
                 
-                if function == '!=':
+                elif function == '!=':
                     or_select = or_select | (test_series != value)
                     
-                if function == '>':
+                elif function == '>':
                     or_select = or_select | (test_series > value)
                     
-                if function == '<':
+                elif function == '<':
                     or_select = or_select | (test_series < value)
                     
-                if function == '>=':
+                elif function == '>=':
                     or_select = or_select | (test_series >= value)
                     
-                if function == '<=':
+                elif function == '<=':
                     or_select = or_select | (test_series <= value)
-                    
-                if function == 'contains':
+
+                elif function == 'contains':
                     or_select = or_select | (test_series.str.lower().str.contains(value.lower().replace('^', r'\^')))
                     
-                if function == 'startswith':
+                elif function == 'startswith':
                     or_select = or_select | (test_series.str.lower().str.startswith(value.lower()))
                     
-                if function == 'endswith':
+                elif function == 'endswith':
                     or_select = or_select | (test_series.str.lower().str.endswith(value.lower()))
                     
-                if function == 'isna':
+                elif function == 'isna':
                     or_select = or_select | (test_series.isna())
                     
-                if function == 'notna':
+                elif function == 'notna':
                     or_select = or_select | (test_series.notna())
-                    
+
             select = select & or_select
 
         return (sorted(self.filter_data[select].index), columns)
 
 class Frame_Filters(tk.Frame):
+    # Frame that collects Frame_Filter widgets
+    
     def __init__(self, parent, filter_data):
         super().__init__(parent)
         self.parent = parent
         self.filter_data = filter_data
 
     def add_frame_filter(self, filter={'and': (), 'or': []}):
+        # add a Frame Filter at every button click command
         Frame_Filter(self, self.filter_data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
 
     def remove_frame_filter(self, frame_filter_a):
@@ -217,6 +231,9 @@ class Filter(tk.Frame):
         super().__init__(parent)
         self.parent = parent
         self.filter_data = filter_data
+        self.filter = filter
+        first_params = ['type','sub_type', 'sector', 'industry']
+        self.params = [self.filter_data.index.name] + first_params + sorted(set(self.filter_data.columns).difference(first_params))
 
         # remove filter from parentbutton
         tk.Button(self, text='X', command=lambda: parent.remove_filter(self)).grid(row=0, column=0)
@@ -224,19 +241,8 @@ class Filter(tk.Frame):
         # add filter to parent button
         tk.Button(self, text='+', command=parent.add_filter).grid(row=0, column=1)
 
-        # add param option menu
-        first_params = ['type','sub_type', 'sector', 'industry']
-        params = [self.filter_data.index.name] + first_params + sorted(set(self.filter_data.columns).difference(first_params))
-        self.param_select = tk.StringVar()
-        if len(filter) > 0:
-            self.param_select.set(filter[0])
-        else:
-            self.param_select.set(params[0])
-        self.param_select.trace('w', self.param_changed)
-        self.param = ttk.Combobox(self, textvariable=self.param_select, values=params, width=45, state='readonly')
-        self.param_shift = False
-        self.param_last = self.param_select.get()
-        self.param.grid(row=0, column=2)
+        # add param option entry
+        self.replace_entry(2, self.params)
 
         # add function option menu
         functions = [
@@ -253,69 +259,93 @@ class Filter(tk.Frame):
             'notna',
         ]
         self.function_select = tk.StringVar()
-        if len(filter) > 0:
-            self.function_select.set(filter[1])
+        if len(self.filter) > 0:
+            self.function_select.set(self.filter[1])
         else:
             self.function_select.set(functions[0])
         function = tk.OptionMenu(self, self.function_select, *functions, command=self.function_changed)
         function.config(width=7)
         function.grid(row=0, column=3)
 
-        # add value option menu
-        self.value_select = tk.StringVar()
-        if len(filter) > 0:
-            self.value = tk.Entry(self, width=37)
-            self.value.insert(tk.END, filter[2])
-            self.value.grid(row=0, column=5)
+        self.entry_option = tk.IntVar()
+        if len(self.filter) > 0 and self.filter[3]:
+            self.entry_option.set(1)
+        tk.Checkbutton(self, variable=self.entry_option, command=self.entry_option_changed).grid(row=0, column=4)
+
+        # automatically update second entry by saying the first one changed
+        self.entry_changed(None, 2)
+
+    def entry_changed(self, event, column):
+        if isinstance(event, tk.Event):
+            value = event.widget.get()
         else:
-            self.value = None
-            self.param_changed(self.param_select.get())
+            value = self.grid_slaves(row=0, column=column)[0].get()
 
-    def param_changed(self, *args):
-        # create a new one if vreated before
-        if not isinstance(self.value, type(None)):
-            self.value.destroy()
-            self.value = None
+        if column == 2:
+            # get settings of current filter
+            function = self.function_select.get()
 
-        # get settings of current filter
-        function = self.function_select.get()
-        param = self.param_select.get()
+            if function in ['isna', 'notna']:
+                self.entry_option.set(0)
+                self.replace_entry(5, None)
+            elif function in ['contains', 'startswith', 'endswith']:
+                self.entry_option.set(0)
+                self.replace_entry(5, [])
+            elif self.entry_option.get() == 0:
+                # find possible values for parameter
+                if value == self.filter_data.index.name:
+                    values = sorted(self.filter_data.index)
+                else:
+                    values = sorted(self.filter_data[value].dropna().unique())
+                
+                # too many for selection or not string values, use entry
+                if len(values) > 200 or not isinstance(values[0], str):
+                    self.replace_entry(5, [])
+                else:
+                    self.replace_entry(5, values)
+            else:
+                self.replace_entry(5, self.params)
+    
+    def replace_entry(self, column, values):
+        old_widget = self.grid_slaves(row=0, column=column)
+        if len(old_widget) > 0:
+            old_widget[0].destroy()
+        
+        if isinstance(values, type(None)): return
 
-        # these functions do not use values
-        if function in ['isna', 'notna']: return
+        value = ''
+        if len(self.filter) > 0:
+            if column == 2:
+                value = self.filter[0]
+            elif column == 5:
+                value = self.filter[2]
 
-        # these functions do not use multi values selection
-        if function in ['contains', 'startswith', 'endswith']:
-            self.value = tk.Entry(self, width=37)
-            self.value.grid(row=0, column=5)
-            return
-
-        # get possible values for param
-        self.param_last = param
-        if param == self.filter_data.index.name:
-            values = sorted(self.filter_data.index)
+        if len(values) > 0:
+            entry = ttk.Combobox(self, values=values, width=45, state='readonly')
+            entry.current(0)
+            if value in values:
+                entry.current(values.index(value))
+            entry.bind("<<ComboboxSelected>>", lambda event: self.entry_changed(event, column))
+            entry.grid(row=0, column=column)
         else:
-            values = sorted(self.filter_data[param].dropna().unique())
-        
-        # too many for selection or not string values, use entry
-        if len(values) > 200 or not isinstance(values[0], str):
-            self.value = tk.Entry(self, width=37)
-            self.value.grid(row=0, column=5)
-            return
-        
-        # use selection
-        self.value_select.set(values[0])
-        self.value = ttk.Combobox(self, textvariable=self.value_select, values=values, width=30, state='readonly')
-        self.value.grid(row=0, column=5)
+            entry = tk.Entry(self, width=45)
+            entry.insert(tk.END, value)
+            entry.grid(row=0, column=column)
 
+    def entry_option_changed(self):
+        self.entry_changed(None, 2)
+    
     def function_changed(self, function):
-        self.param_changed(self.param_select.get())
+        self.entry_changed(None, 2)
 
     def get_filter(self):
-        column = self.param_select.get()
+        column = self.grid_slaves(row=0, column=2)[0].get()
         function = self.function_select.get()
-        if isinstance(self.value, tk.Entry):
-            value = self.value.get()
+        value = self.grid_slaves(row=0, column=5)
+        if len(value) == 0:
+            value = None
         else:
-            value = self.value_select.get()
-        return (column, function, value)
+            value = value[0].get()
+        value_is_column = self.entry_option.get() == 1
+        return (column, function, value, value_is_column)
+    
