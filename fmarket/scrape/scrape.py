@@ -9,6 +9,7 @@ from pprint import pp
 class Scrape():
     settings = {
         'symbols': True,
+        'sp500_index': True,
         'polygon_news': True,
         'finviz_news': True,
         'yahoof_info': True,
@@ -35,6 +36,10 @@ class Scrape():
         if self.settings['symbols']:
             scrapers.append([FMP_Stocklist, [], forced])
             scrapers.append([Polygon_Tickers, [], forced])
+
+        # add S&P500index info
+        if self.settings['sp500_index']:
+            scrapers.append([YahooF_SP500, [], forced])
         
         # add polygon news
         if self.settings['polygon_news']:
