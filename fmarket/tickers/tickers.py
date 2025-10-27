@@ -9,7 +9,6 @@ class Tickers():
 
     def __make_symbols(self, symbols, yahoof, active):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
-
         # start creating symbols
         self.__symbols = pd.DataFrame()
 
@@ -56,13 +55,17 @@ class Tickers():
 
             # fill in missing types and sub_types with NONE
             self.__symbols.loc[self.__symbols['type'].isna(), 'type'] = 'NONE'
-            self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
+            if not 'sub_type' in self.__symbols.columns:
+                self.__symbols['sub_type'] = 'NONE'
+            else:
+                self.__symbols.loc[self.__symbols['sub_type'].isna(), 'sub_type'] = 'NONE'
 
             # keep only the ones in yahoof
             if yahoof:
                 self.__symbols.loc[self.__symbols.index.isin(symbols_data_vault['YahooF_Info:info'].index),'yahoof'] = True
                 self.__symbols = self.__symbols[self.__symbols['yahoof'] == True]
                 self.__symbols.drop(['yahoof'], axis=1, inplace=True)
+
         elif yahoof:
             # it asks for yahoof symbols, but since there is no info, return nothing
             self.__symbols = pd.DataFrame()
