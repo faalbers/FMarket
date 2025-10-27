@@ -13,17 +13,17 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         super().__init__(parent, symbols)
         self.symbols = symbols
         self.set_charts(symbols)
-        self.set_charts_sectors(symbols)
 
         self.title('Charts Compare')
 
         # add top options
 
         # dector for sector relative
-        tk.Label(self.frame_top_options, text='Sector:').pack(side='left')
-        sectors = ['N/A'] + sorted(self.charts_sectors.columns)
+        tk.Label(self.frame_top_options, text='S&P 500 Sector:').pack(side='left')
+        sectors = ['N/A', 'All'] + self.sectors
+        self.sector = sectors[0]
         sector_select = tk.StringVar()
-        sector_select.set(sectors[0])
+        sector_select.set(self.sector)
         sector = tk.OptionMenu(self.frame_top_options, sector_select, *sectors, command=self.sector_changed)
         sector.pack(side='left')
 
@@ -63,10 +63,16 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         self.plot_charts()
 
     def sector_changed(self, sector):
-        print(sector)
-
-    def set_charts_sectors(self, symbols):
-        self.charts_sectors = pd.DataFrame(columns=symbols)
+        self.sector = sector
+        if self.sector in ['N/A', 'All']:
+            self.frame_symbols.set_symbols()
+            self.symbols = self.frame_symbols.get_symbols()
+        else:
+            self.frame_symbols.clear_symbols()
+            self.frame_symbols.set_symbols(self.sector_symbols[self.sector])
+            self.symbols = self.frame_symbols.get_symbols()
+        
+        self.plot_charts()
 
     def auto_date_range_changed(self, auto_date_range):
         self.plot_charts()
@@ -113,6 +119,22 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
             adj_close = chart['adj_close']
             self.charts = self.charts.merge(adj_close, how='outer', left_index=True, right_index=True)
             self.charts = self.charts.rename(columns={'adj_close': symbol})
+        
+        self.charts_sectors = analysis.get_chart_sector()
+        sectors = analysis.get_filter_data()['sector'].dropna()
+        self.sectors = sorted(sectors.unique())
+
+        self.sector_symbols = {'N/A': symbols, 'All': symbols}
+        for sector_symbol, sector in sectors.items():
+            if sector not in self.charts_sectors.columns:
+                raise Exception('sector not found: %s' % sector)
+            if not sector in self.sector_symbols:
+                self.sector_symbols[sector] = []
+            self.sector_symbols[sector].append(sector_symbol)
+        
+        # for symbol, sector in self.analysis_data.loc[symbols]['sector'].dropna().items():
+        #     self.sector_symbols[sector].append(symbol)
+        # self.sector_symbols['N/A'] = symbols
 
     def get_charts(self):
         self.set_dates()

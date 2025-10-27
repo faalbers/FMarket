@@ -12,6 +12,7 @@ class Analysis_Compare_GUI(tk.Toplevel):
 
         frame_symbols_data = Frame_Symbols_Data(self, symbols)
         frame_symbols_data.pack(expand=True, fill='both')
+        self.frame_symbols = frame_symbols_data.frame_symbols
         self.frame_data = frame_symbols_data.frame_data
         
         self.frame_bottom_options = tk.Frame(self)
@@ -22,8 +23,8 @@ class Frame_Symbols_Data(ttk.Frame):
         super().__init__(parent)
         self.parent = parent
 
-        frame_symbols = Frame_Symbols(self, symbols)
-        frame_symbols.pack(side='left', fill='y')
+        self.frame_symbols = Frame_Symbols(self, symbols)
+        self.frame_symbols.pack(side='left', fill='y')
         self.frame_data = Frame_Data(self)
         self.frame_data.pack(side='left', expand=True, fill='both')
 
@@ -60,6 +61,24 @@ class Frame_Symbols(ttk.Frame):
         scrollbar = ttk.Scrollbar(self, orient = 'vertical', command=self.scroll_update)
         self.canvas.config(yscrollcommand=scrollbar.set)
         scrollbar.pack(side='right', fill='y')
+
+    def clear_symbols(self, symbols=[]):
+        if len(symbols) == 0:
+            for symbol, state in self.symbols_state.items():
+                state.set(0)
+        else:
+            for symbol in symbols:
+                if symbol in self.symbols_state:
+                    self.symbols_state[symbol].set(0)
+    
+    def set_symbols(self, symbols=[]):
+        if len(symbols) == 0:
+            for symbol, state in self.symbols_state.items():
+                state.set(1)
+        else:
+            for symbol in symbols:
+                if symbol in self.symbols_state:
+                    self.symbols_state[symbol].set(1)
 
     def check_changed(self):
         self.parent.symbols_changed(self.get_symbols())

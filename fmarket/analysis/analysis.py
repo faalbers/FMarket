@@ -35,6 +35,54 @@ class Analysis():
     def get_chart(self):
         return self.tickers.get_chart()
     
+    def get_chart_sector(self):
+        # https://www.sectorspdrs.com/
+        # https://www.spglobal.com/spdji/en/index-finder/
+        # https://www.barchart.com/stocks/indices/us-sectors
+
+        sectors = {
+            'SPY': 'All',
+            'XLV': 'Healthcare',
+            'XLB': 'Basic Materials',
+            'XLK': 'Technology',
+            'XLF': 'Financial Services',
+            'XLI': 'Industrials',
+            'XLRE': 'Real Estate',
+            'XLC': 'Communication Services',
+            'XLU': 'Utilities',
+            'XLE': 'Energy',
+            'XLP': 'Consumer Defensive',
+            'XLY': 'Consumer Cyclical',
+        }
+        # others = {
+        #     '^NDX': 'NASDAQ-100',
+        #     '^NDXT': 'NASDAQ-100 Technology Sector',
+        # }
+        # sp500 = {
+        #     '^SPX': 'S&P 500 INDEX',
+        #     '^SP500-10': 'S&P 500 Energy (Sector)',
+        #     '^SP500-15': 'S&P 500 Materials (Sector)',
+        #     '^SP500-20': 'S&P 500 Industrials (Sector)',
+        #     '^SP500-25': 'S&P 500 Consumer Discretionary (Sector)',
+        #     '^SP500-30': 'S&P 500 Consumer Staples (Sector)',
+        #     '^SP500-35': 'S&P 500 Health Care (Sector)',
+        #     '^SP500-40': 'S&P 500 Financials (Sector)',
+        #     '^SP500-45': 'S&P 500 Information Technology (Sector)',
+        #     '^SP500-50': 'S&P 500 Communication Services (Sector)',
+        #     '^SP500-55': 'S&P 500 Utilities (Sector)',
+        #     '^SP500-60': 'S&P 500 Real Estate (Sector)',
+        # }
+        
+        tickers = Tickers(sorted(sectors)).get_chart()
+        chart_sector = pd.DataFrame()
+        for symbol, sector_chart in tickers.items():
+            if symbol in tickers:
+                chart_sector = chart_sector.merge(sector_chart['adj_close'],
+                    how='outer', left_index=True, right_index=True)
+                chart_sector.rename(columns={'adj_close': sectors[symbol]}, inplace=True)
+        
+        return chart_sector
+
     def get_dividend_yields(self):
         self.__data['chart'] = self.tickers.get_chart()
         dividend_yields = self.__get_dividend_yields()
