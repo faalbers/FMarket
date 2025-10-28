@@ -268,8 +268,8 @@ class Filter(tk.Frame):
         function.grid(row=0, column=3)
 
         self.entry_option = tk.IntVar()
-        if len(self.filter) > 0 and self.filter[3]:
-            self.entry_option.set(1)
+        if len(self.filter) > 3 and self.filter[3]:
+                self.entry_option.set(1)
         tk.Checkbutton(self, variable=self.entry_option, command=self.entry_option_changed).grid(row=0, column=4)
 
         # automatically update second entry by saying the first one changed
