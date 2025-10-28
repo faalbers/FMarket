@@ -21,10 +21,9 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         # dector for sector relative
         tk.Label(self.frame_top_options, text='S&P 500 Sector:').pack(side='left')
         sectors = ['N/A', 'All'] + self.sectors
-        self.sector = sectors[0]
-        sector_select = tk.StringVar()
-        sector_select.set(self.sector)
-        sector = tk.OptionMenu(self.frame_top_options, sector_select, *sectors, command=self.sector_changed)
+        self.sector = tk.StringVar()
+        self.sector.set(sectors[0])
+        sector = tk.OptionMenu(self.frame_top_options, self.sector, *sectors, command=self.sector_changed)
         sector.pack(side='left')
 
         # add bottom options
@@ -55,23 +54,36 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         self.auto_date_range.set(auto_date_range[0])
         tk.OptionMenu(self.frame_bottom_options, self.auto_date_range, *auto_date_range, command=self.auto_date_range_changed).pack(side='left')
 
+        # sector relative
+        self.sector_relative = tk.BooleanVar()
+        tk.Checkbutton(self.frame_bottom_options, text='sector relative',
+            variable=self.sector_relative,
+            command=self.sector_relative_changed).pack(side='left')
+
         # refresh graph
         self.plot_charts()
 
     def symbols_changed(self, symbols):
         self.symbols = symbols
+        self.sector.set('N/A')
+        self.sector_relative.set(0)
         self.plot_charts()
 
     def sector_changed(self, sector):
-        self.sector = sector
-        if self.sector in ['N/A', 'All']:
+        sector = self.sector.get()
+        if sector in ['N/A', 'All']:
             self.frame_symbols.set_symbols()
             self.symbols = self.frame_symbols.get_symbols()
         else:
             self.frame_symbols.clear_symbols()
-            self.frame_symbols.set_symbols(self.sector_symbols[self.sector])
+            self.frame_symbols.set_symbols(self.sector_symbols[sector])
             self.symbols = self.frame_symbols.get_symbols()
         
+        self.plot_charts()
+
+    def sector_relative_changed(self):
+        if self.sector.get() == 'N/A':
+            self.sector_relative.set(0)
         self.plot_charts()
 
     def auto_date_range_changed(self, auto_date_range):
@@ -120,7 +132,7 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
             self.charts = self.charts.merge(adj_close, how='outer', left_index=True, right_index=True)
             self.charts = self.charts.rename(columns={'adj_close': symbol})
         
-        self.charts_sectors = analysis.get_chart_sector()
+        self.charts_sectors = analysis.get_chart_sector().ffill().dropna()
         sectors = analysis.get_filter_data()['sector'].dropna()
         self.sectors = sorted(sectors.unique())
 
@@ -131,10 +143,6 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
             if not sector in self.sector_symbols:
                 self.sector_symbols[sector] = []
             self.sector_symbols[sector].append(sector_symbol)
-        
-        # for symbol, sector in self.analysis_data.loc[symbols]['sector'].dropna().items():
-        #     self.sector_symbols[sector].append(symbol)
-        # self.sector_symbols['N/A'] = symbols
 
     def get_charts(self):
         self.set_dates()
@@ -150,12 +158,25 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         if child_found: del(self.canvas)
         
         compare = self.get_charts()
-        compare = compare / compare.iloc[0]
+        # compare = compare / compare.iloc[0]
+
+        # sector relative
+        sector = self.sector.get()
+        if self.sector_relative.get() and sector != 'N/A':
+            compare = compare.merge(self.charts_sectors[sector], how='outer', left_index=True, right_index=True)
+            compare = compare.ffill().dropna()
+            sector_chart = compare[sector]
+            sector_chart = sector_chart / sector_chart.iloc[0]
+            compare = compare.drop(sector, axis=1)
+            compare = compare / compare.iloc[0]
+            compare = (compare.T-sector_chart).T + 1.0
+        else:
+            compare = compare / compare.iloc[0]
         
         fig, ax = plt.subplots()
         if not compare.empty:
             compare.plot(ax=ax)
-            ax.axhline(y=0.0, color='black', linestyle='--', linewidth=1)
+            ax.axhline(y=1.0, color='black', linestyle='--', linewidth=1)
             ax.grid(True, linestyle='--', linewidth=0.5, color='gray')
             for column in compare.columns:
                 annotate_x = compare[column].index[-1]
