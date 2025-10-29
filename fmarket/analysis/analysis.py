@@ -85,7 +85,7 @@ class Analysis():
 
     def get_dividend_yields(self):
         self.__data['chart'] = self.tickers.get_chart()
-        dividend_yields = self.__get_dividend_yields()
+        dividend_yields = self.__get_dividends()['dividend_yields']
         self.__data = {}
         return dividend_yields
     
@@ -143,10 +143,10 @@ class Analysis():
         filter_data = filter_data.merge(minervini, how='left', left_index=True, right_index=True)
 
         # get dividends
-        dividend_yields = self.__get_dividend_yields()
+        dividends = self.__get_dividends()
         for period in ['yearly', 'ttm']:
-            name = 'dividends_'+period
-            trends = self.__get_trends(dividend_yields[period], name=name)
+            name = 'dividends_yield_'+period
+            trends = self.__get_trends(dividends['dividend_yields'][period], name=name)
             period_end_name = name+'_period_end'
             end_period = trends[period_end_name].infer_objects()
             trends.drop(period_end_name, axis=1, inplace=True)
@@ -180,6 +180,11 @@ class Analysis():
                 elif period == 'yearly':
                     trends[name+'_end_year'] = end_period
                 filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
+        
+        # get dividend coverage ratio
+        dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
+        dividend_coverage_ratio.name = 'dividend_coverage_ratio'
+        filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
 
         # rename ttm parameters and merge
         rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
@@ -212,6 +217,8 @@ class Analysis():
         filter_data_all = self.db.table_read('analysis')
         peers_params = [
             'pe_ttm',
+            'pe_forward',
+            'peg_ttm',
         ]
         peers_types = [
             'sector',
@@ -290,8 +297,11 @@ class Analysis():
 
         return trends_result
 
-    def __get_dividend_yields(self):
+    def __get_dividends(self):
         ftime = FTime()
+        dividends = {
+            'all': [],
+        }
         dividend_yields = {
             'all': [],
         }
@@ -303,32 +313,44 @@ class Analysis():
                 if is_dividend.any():
                     if chart.index[-1] > last_close_time: last_close_time = chart.index[-1]
                     # get dividends
-                    dividends = chart[is_dividend]['dividends']
-                    dividends.name = symbol
+                    dividends_found = chart[is_dividend]['dividends']
+                    dividends_found.name = symbol
                     # use close price and not adj_close price to calculate yield so that stock splits are accounted for
-                    dividend_yields['all'].append((dividends / float(chart['close'].iloc[-1])) * 100)
+                    dividends['all'].append(dividends_found)
+                    dividend_yields['all'].append((dividends_found / float(chart['close'].iloc[-1])) * 100)
 
         # prepare all dividends
+        dividends['all'] = pd.DataFrame(dividends['all']).T
+        dividends['all'].sort_index(inplace=True)
         dividend_yields['all'] = pd.DataFrame(dividend_yields['all']).T
         dividend_yields['all'].sort_index(inplace=True)
 
-        if not dividend_yields['all'].empty:
+        if not dividends['all'].empty:
             # create yearly
             last_year = ftime.get_offset(ftime.date_local, years=-1).year
+            dividends['yearly'] = dividends['all'].groupby(dividends['all'].index.year).sum().loc[:last_year]
+            dividends['yearly'] = dividends['yearly'].iloc[1:]
+            dividends['yearly'].replace(0, np.nan, inplace=True)
             dividend_yields['yearly'] = dividend_yields['all'].groupby(dividend_yields['all'].index.year).sum().loc[:last_year]
             dividend_yields['yearly'] = dividend_yields['yearly'].iloc[1:]
             dividend_yields['yearly'].replace(0, np.nan, inplace=True)
 
             # create ttm
+            dividends['ttm'] = dividends['all'].groupby(dividends['all'].index.map(lambda x: relativedelta(last_close_time, x).years)).sum()
+            dividends['ttm'].sort_index(ascending=False, inplace=True)
+            dividends['ttm'] = dividends['ttm'].iloc[1:]
+            dividends['ttm'].replace(0, np.nan, inplace=True)
             dividend_yields['ttm'] = dividend_yields['all'].groupby(dividend_yields['all'].index.map(lambda x: relativedelta(last_close_time, x).years)).sum()
             dividend_yields['ttm'].sort_index(ascending=False, inplace=True)
             dividend_yields['ttm'] = dividend_yields['ttm'].iloc[1:]
             dividend_yields['ttm'].replace(0, np.nan, inplace=True)
         else:
+            dividends['yearly'] = pd.DataFrame()
+            dividends['ttm'] = pd.DataFrame()
             dividend_yields['yearly'] = pd.DataFrame()
             dividend_yields['ttm'] = pd.DataFrame()
 
-        return dividend_yields
+        return {'dividends': dividends, 'dividend_yields': dividend_yields}
 
     def __get_minervini(self):
         chart_data = pd.DataFrame()
@@ -397,6 +419,8 @@ class Analysis():
                 data['net profit margin'] = (trailing['net_income'] / trailing['total_revenue']) * 100
         # if 'free_cash_flow' in trailing.columns:
         #     data['free cash flow'] = trailing['free_cash_flow']
+        if 'eps' in trailing.columns:
+            data['eps'] = trailing['eps']
 
         # post fix data
         data = data.T
@@ -419,6 +443,7 @@ class Analysis():
             'profit margin': [],
             'net profit margin': [],
             'pe': [],
+            'eps': [],
             'free cash flow': [],
             'price to free cash flow': [],
         }
@@ -472,6 +497,8 @@ class Analysis():
                         fcf = symbol_period['free_cash_flow']
                         if period == 'quarterly': fcf = fcf * 4
                         add_values('price to free cash flow', symbol, market_cap / fcf)
+            if 'eps' in symbol_period.columns:
+                add_values('eps', symbol, symbol_period['eps'])
 
         # create dataframe pre parameter
         for parameter, series in data.items():
