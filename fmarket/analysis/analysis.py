@@ -171,7 +171,10 @@ class Analysis():
                 if trend_data.empty: continue
                 if param in params_skip: continue
                 name = param.replace(' ', '_')+'_'+period
-                trends = self.__get_trends(trend_data, name=name)
+                if 'quarterly':
+                    trends = self.__get_trends(trend_data, name=name, check_gaps=False)
+                else:
+                    trends = self.__get_trends(trend_data, name=name)
                 end_period = trends[name+'_period_end'].infer_objects()
                 trends.drop(name+'_period_end', axis=1, inplace=True)
                 if period == 'quarterly':
@@ -284,7 +287,7 @@ class Analysis():
         
         return mos
     
-    def __get_trends(self, data, name):
+    def __get_trends(self, data, name, check_gaps=True):
         renames = {
             'trend_step_ratio': '%s_trend' % name,
             'step_count': '%s_count' % name,
@@ -292,7 +295,7 @@ class Analysis():
             'last_valid_value': name,
             'last_valid_index': '%s_period_end' % name,
         }
-        trends_result = utils.get_trends(data)[list(renames)]
+        trends_result = utils.get_trends(data, check_gaps=check_gaps)[list(renames)]
         trends_result.rename(columns=renames, inplace=True)
 
         return trends_result
@@ -305,13 +308,13 @@ class Analysis():
         dividend_yields = {
             'all': [],
         }
-        last_close_time = pd.Timestamp('2000-01-01')
+        now = ftime.now_naive
         for symbol, chart in self.__data['chart'].items():
             chart = chart.copy()
             if 'dividends' in chart.columns:
                 is_dividend = chart['dividends'] > 0.0
                 if is_dividend.any():
-                    if chart.index[-1] > last_close_time: last_close_time = chart.index[-1]
+                    # if chart.index[-1] > last_close_time: last_close_time = chart.index[-1]
                     # get dividends
                     dividends_found = chart[is_dividend]['dividends']
                     dividends_found.name = symbol
@@ -329,21 +332,40 @@ class Analysis():
             # create yearly
             last_year = ftime.get_offset(ftime.date_local, years=-1).year
             dividends['yearly'] = dividends['all'].groupby(dividends['all'].index.year).sum().loc[:last_year]
-            dividends['yearly'] = dividends['yearly'].iloc[1:]
             dividends['yearly'].replace(0, np.nan, inplace=True)
+            # make first value a nan to avoid first incomplete year
+            first_indices = dividends['yearly'].notna().idxmax()
+            for col in dividends['yearly'].columns:
+                dividends['yearly'].loc[first_indices[col], col] = np.nan
+            dividends['yearly'].dropna(how='all', axis=1, inplace=True)
+            
             dividend_yields['yearly'] = dividend_yields['all'].groupby(dividend_yields['all'].index.year).sum().loc[:last_year]
-            dividend_yields['yearly'] = dividend_yields['yearly'].iloc[1:]
             dividend_yields['yearly'].replace(0, np.nan, inplace=True)
+            # make first value a nan to avoid first incomplete year
+            first_indices = dividend_yields['yearly'].notna().idxmax()
+            for col in dividend_yields['yearly'].columns:
+                dividend_yields['yearly'].loc[first_indices[col], col] = np.nan
+            dividend_yields['yearly'].dropna(how='all', axis=1, inplace=True)
 
             # create ttm
-            dividends['ttm'] = dividends['all'].groupby(dividends['all'].index.map(lambda x: relativedelta(last_close_time, x).years)).sum()
+            dividends['ttm'] = dividends['all'].groupby(dividends['all'].index.map(lambda x: relativedelta(now, x).years)).sum()
             dividends['ttm'].sort_index(ascending=False, inplace=True)
-            dividends['ttm'] = dividends['ttm'].iloc[1:]
             dividends['ttm'].replace(0, np.nan, inplace=True)
-            dividend_yields['ttm'] = dividend_yields['all'].groupby(dividend_yields['all'].index.map(lambda x: relativedelta(last_close_time, x).years)).sum()
+            # make first value a nan to avoid first incomplete year
+            first_indices = dividends['ttm'].notna().idxmax()
+            for col in dividends['ttm'].columns:
+                dividends['ttm'].loc[first_indices[col], col] = np.nan
+            dividends['ttm'].dropna(how='all', axis=1, inplace=True)
+            
+            dividend_yields['ttm'] = dividend_yields['all'].groupby(dividend_yields['all'].index.map(lambda x: relativedelta(now, x).years)).sum()
             dividend_yields['ttm'].sort_index(ascending=False, inplace=True)
-            dividend_yields['ttm'] = dividend_yields['ttm'].iloc[1:]
             dividend_yields['ttm'].replace(0, np.nan, inplace=True)
+            # make first value a nan to avoid first incomplete ttm years
+            first_indices = dividend_yields['ttm'].notna().idxmax()
+            for col in dividend_yields['ttm'].columns:
+                dividend_yields['ttm'].loc[first_indices[col], col] = np.nan
+            dividend_yields['ttm'].dropna(how='all', axis=1, inplace=True)
+
         else:
             dividends['yearly'] = pd.DataFrame()
             dividends['ttm'] = pd.DataFrame()

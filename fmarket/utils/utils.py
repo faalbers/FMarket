@@ -12,7 +12,7 @@ def get_average(df, median_threshold=0.1):
     average.loc[average['deviation'] <= median_threshold, 'average'] = average['mean']
     return average['average']
 
-def get_trends(df, ratio_base=None, fill_gaps=True):
+def get_trends(df, ratio_base=None, check_gaps=True):
     df = df.dropna(how='all', axis=0)
     trends = pd.DataFrame(columns=['trend', 'trend_ratio', 'trend_step', 'trend_step_ratio', 'volatility', 'step_count', 'last_valid_value', 'last_valid_index'])
     for column in df.columns:
@@ -26,20 +26,29 @@ def get_trends(df, ratio_base=None, fill_gaps=True):
             trends.loc[column, 'last_valid_index'] = last_valid_index
             trends.loc[column, 'last_valid_value'] = column_data.loc[last_valid_index]
 
-        # got data from first notna to last notna 
+        # get data from first notna to last notna 
         column_data = column_data.loc[column_data.first_valid_index():column_data.last_valid_index()]
+
+        # get last continues set of values based on index
+        if check_gaps:
+            column_data_check = column_data.dropna()
+            index_range = column_data_check.index.to_series() - column_data_check.index.to_series().shift(1)
+            start_values = (index_range > 1) | (index_range < -1)
+            if start_values.any():
+                column_data = column_data.loc[start_values.idxmax():]
+            column_data.dropna(inplace=True)
 
         # we have no trending data
         if column_data.shape[0] < 2:
             trends.loc[column] = np.nan
             continue
         
-        # linear interpolate data for missing gaps
-        if fill_gaps:
-            column_data = column_data.interpolate(method='linear')
-        elif column_data.isna().any():
-            trends.loc[column] = np.nan
-            continue
+        # # linear interpolate data for missing gaps
+        # if fill_gaps:
+        #     column_data = column_data.interpolate(method='linear')
+        # elif column_data.isna().any():
+        #     trends.loc[column] = np.nan
+        #     continue
 
         # reset index for linear regression
         column_data = column_data.reset_index(drop=True)
