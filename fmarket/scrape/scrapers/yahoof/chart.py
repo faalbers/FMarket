@@ -71,7 +71,7 @@ class YahooF_Chart(YahooF):
             status.loc[symbol, 'chart_last'] = result_data.index[-1]
             status.loc[symbol, 'chart_count'] = result_data.shape[0]
             result_data.index.name = 'timestamp'
-            self.db.table_write_reference(symbol, 'chart', result_data, replace=True)
+            self.db.table_write_reference(symbol, 'chart', result_data, replace_table=True)
             valid = True
 
         # update status

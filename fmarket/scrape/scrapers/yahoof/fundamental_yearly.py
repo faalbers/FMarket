@@ -117,7 +117,7 @@ class YahooF_Fundamental_Yearly(YahooF):
             status.loc[symbol, 'yearly'] = int(ftime.now_local.timestamp())
             status.loc[symbol, 'yearly_last'] = yearly.index[-1]
             status.loc[symbol, 'yearly_count'] = yearly.shape[0]
-            self.db.table_write_reference(symbol, 'yearly', yearly, replace=True)
+            self.db.table_write_reference(symbol, 'yearly', yearly, replace_table=True)
 
         # update status
         self.db.table_write('status_db', status)

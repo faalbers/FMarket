@@ -47,7 +47,7 @@ class Polygon_News(Polygon):
         # update status
         status_db = pd.DataFrame([{'last_published_utc': self.last_published_utc}], index=['news'])
         status_db.index.name = 'table_name'
-        self.db.table_write('status_db', status_db, replace=True)
+        self.db.table_write('status_db', status_db, replace_table=True)
 
         self.logger.info('update done')
 

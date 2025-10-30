@@ -52,7 +52,7 @@ class FMP_Stocklist(FMP):
         
         write_data = pd.DataFrame(write_data, index=write_symbols)
         write_data.index.name = 'symbol'
-        self.db.table_write('stocklist', write_data, replace=True)
+        self.db.table_write('stocklist', write_data, replace_table=True)
 
     def scrape_status(self, key_values=[], forced=False, tabs=0):
         # get timestamps

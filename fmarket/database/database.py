@@ -128,7 +128,7 @@ class Database():
 
         return table_data
 
-    def table_write(self, table_name, df, replace=False, update=True):
+    def table_write(self, table_name, df, replace_table=False, update=True):
         # since we are manipulating df, make a copy
         df = df.copy()
         if df.empty: return
@@ -141,8 +141,9 @@ class Database():
             if index_name in df.columns: raise ValueError('Index name same as colmn name')
             index = True
 
-        # drop column where all values are nan
-        df.dropna(axis=1, how='all', inplace=True)
+        # drop column where all values are nan if we replace or do not update
+        if replace_table or not update:
+            df.dropna(axis=1, how='all', inplace=True)
 
         # get column types
         dtypes = {}
@@ -158,8 +159,8 @@ class Database():
 
         cursor = self.connection.cursor()
 
-        # if force replace, no need to do all below
-        if replace:
+        # if force replace_table, no need to do all below
+        if replace_table:
             if index:
                 df.to_sql(table_name, self.connection, if_exists='replace', index=True, dtype=dtypes)
             else:
@@ -206,23 +207,20 @@ class Database():
                 if not df_update.empty and update:
                     # handle updates
                     for index, row in df_update.iterrows():
-                        # only update non empty values
-                        row = row.dropna()
                         if len(row) == 0: continue
                         columns_string = ','.join('[%s]'%x for x in row.index)
                         value_holder_string = ','.join(['?']*row.shape[0])
                         exec_string = "UPDATE '%s' SET (%s) = (%s) WHERE [%s] = '%s'"  % (table_name, columns_string, value_holder_string, index_name, index)
-                        # print(tuple(row.tolist()))
                         cursor.execute(exec_string, tuple(row.tolist()))
         else:
             # just append them all
             df.to_sql(table_name, self.connection, if_exists='append', index=False, dtype=dtypes)
         cursor.close()
 
-    def table_write_reference(self, symbol, reference, df, replace=False, update=True):
+    def table_write_reference(self, symbol, reference, df, replace_table=False, update=True):
         # make reference table name
         reference_name = reference + '_' + symbol
-        self.table_write(reference_name, df, replace=replace, update=update)
+        self.table_write(reference_name, df, replace_table=replace_table, update=update)
         table_reference = pd.DataFrame([{reference: reference_name}], index=[symbol])
         table_reference.index.name = 'symbol'
         self.table_write('table_reference', table_reference)

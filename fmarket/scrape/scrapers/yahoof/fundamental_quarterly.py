@@ -163,7 +163,7 @@ class YahooF_Fundamental_Quarterly(YahooF):
             status.loc[symbol, 'quarterly'] = int(ftime.now_local.timestamp())
             status.loc[symbol, 'quarterly_last'] = quarterly.index[-1]
             status.loc[symbol, 'quarterly_count'] = quarterly.shape[0]
-            self.db.table_write_reference(symbol, 'quarterly', quarterly, replace=True)
+            self.db.table_write_reference(symbol, 'quarterly', quarterly, replace_table=True)
 
         if ttm.shape[0] > 0:
             valid = True
