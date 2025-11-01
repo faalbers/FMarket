@@ -26,6 +26,11 @@ class Analysis():
                 self.__cache_filter_data(missing)
                 filter_data = self.db.table_read('analysis', keys=symbols)
         
+        # add additional info data
+        tickers = Tickers(sorted(filter_data.index))
+        info_add = tickers.get_catalog('info')['YahooF_Info:info']
+        filter_data = filter_data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
+
         # add peers data
         self.__add_peers_data(filter_data)
 
@@ -208,15 +213,10 @@ class Analysis():
         # infer al object columns
         filter_data = filter_data.infer_objects()
 
-        # add additional data
-        info_add = tickers.get_catalog('info')['YahooF_Info:info']
-        print(info_add)
-        filter_data = filter_data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
-        
         # write to db
         self.db.backup()
         self.db.table_write('analysis', filter_data)
-    
+
     def __add_peers_data(self, filter_data):
         filter_data_all = self.db.table_read('analysis')
         peers_params = [
