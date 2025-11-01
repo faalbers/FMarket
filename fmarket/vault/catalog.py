@@ -49,6 +49,15 @@ class Catalog():
                 ],
             },
         },
+        'info': {
+            YahooF_Info: {
+                'info': [
+                    ['trailingPE', 'pe_ttm'],
+                    ['forwardPE', 'pe_forward'],
+                    ['trailingPegRatio', 'peg_ttm'],
+                ],
+            },
+        },
         'analysis_info': {
             YahooF_Info: {
                 'info': [
@@ -59,6 +68,18 @@ class Catalog():
                     # ['forwardPE', 'pe_forward'],
                     # ['trailingPegRatio', 'peg_ttm'],
                     ['fundOverview', 'fund_overview'],
+                ],
+            },
+        },
+        'analysis_chart': {
+            YahooF_Chart: {
+                'chart': [
+                    ['Adj Close', 'adj_close'],
+                    ['Close', 'close'],
+                    ['Low', 'low'],
+                    ['High', 'high'],
+                    ['Dividends', 'dividends'],
+                    # ['Stock Splits', 'stock_splits'],
                 ],
             },
         },

@@ -208,6 +208,11 @@ class Analysis():
         # infer al object columns
         filter_data = filter_data.infer_objects()
 
+        # add additional data
+        info_add = tickers.get_catalog('info')['YahooF_Info:info']
+        print(info_add)
+        filter_data = filter_data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
+        
         # write to db
         self.db.backup()
         self.db.table_write('analysis', filter_data)
