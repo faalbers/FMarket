@@ -6,6 +6,7 @@ class Tickers():
         self.vault = Vault()
         self.__make_symbols(symbols, yahoof, active)
         self.empty = self.__symbols.empty
+        self.count = len(self.__symbols)
 
     def __make_symbols(self, symbols, yahoof, active):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
@@ -95,22 +96,26 @@ class Tickers():
         tickers = self.__symbols.copy()
 
         return tickers
+    
+    def get_catalog(self, catalog):
 
-    def get_info(self):
-        info = self.vault.get_data('info', key_values=sorted(self.__symbols.index))['YahooF_Info:info']
-        data = self.__symbols.merge(info, how='outer', left_index=True, right_index=True)
-        return data
+        return self.vault.get_data(catalog, key_values=sorted(self.__symbols.index))
+
+    # def get_info(self):
+    #     info = self.vault.get_data('info', key_values=sorted(self.__symbols.index))['YahooF_Info:info']
+    #     data = self.__symbols.merge(info, how='outer', left_index=True, right_index=True)
+    #     return data
 
     def get_chart(self):
         data = self.vault.get_data('chart', key_values=sorted(self.__symbols.index))['YahooF_Chart:chart']
         return data
 
-    def get_fundamental(self):
-        data = self.vault.get_data('fundamental', key_values=sorted(self.__symbols.index))
-        fundamental = {
-            'ttm': data['YahooF_Fundamental_Quarterly:ttm'],
-            'quarterly': data['YahooF_Fundamental_Quarterly:quarterly'],
-            'yearly': data['YahooF_Fundamental_Yearly:yearly'],
-        }
-        return fundamental
+    # def get_fundamental(self):
+    #     data = self.vault.get_data('fundamental', key_values=sorted(self.__symbols.index))
+    #     fundamental = {
+    #         'ttm': data['YahooF_Fundamental_Quarterly:ttm'],
+    #         'quarterly': data['YahooF_Fundamental_Quarterly:quarterly'],
+    #         'yearly': data['YahooF_Fundamental_Yearly:yearly'],
+    #     }
+    #     return fundamental
 

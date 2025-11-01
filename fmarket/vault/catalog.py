@@ -49,20 +49,32 @@ class Catalog():
                 ],
             },
         },
-        'info': {
+        'analysis_info': {
             YahooF_Info: {
                 'info': [
                     ['sectorDisp', 'sector'],
                     ['industryDisp', 'industry'],
                     ['marketCap', 'market_cap'],
-                    ['trailingPE', 'pe_ttm'],
-                    ['forwardPE', 'pe_forward'],
-                    ['trailingPegRatio', 'peg_ttm'],
+                    # ['trailingPE', 'pe_ttm'],
+                    # ['forwardPE', 'pe_forward'],
+                    # ['trailingPegRatio', 'peg_ttm'],
                     ['fundOverview', 'fund_overview'],
                 ],
             },
         },
-        'fundamental': {
+        'analysis_chart': {
+            YahooF_Chart: {
+                'chart': [
+                    ['Adj Close', 'adj_close'],
+                    ['Close', 'close'],
+                    ['Low', 'low'],
+                    ['High', 'high'],
+                    ['Dividends', 'dividends'],
+                    # ['Stock Splits', 'stock_splits'],
+                ],
+            },
+        },
+        'analysis_fundamental': {
             YahooF_Fundamental_Quarterly: {
                 'ttm': [
                     ['CurrentAssets', 'current_assets'],

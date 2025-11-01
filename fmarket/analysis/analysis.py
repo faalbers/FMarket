@@ -11,7 +11,6 @@ class Analysis():
     def __init__(self, symbols=[]):
         self.db = Database('analysis')
         self.tickers = Tickers(symbols)
-        self.__data = {}
 
     def get_filter_data(self, update_cache=False):
         symbols = self.tickers.get().index
@@ -84,36 +83,39 @@ class Analysis():
         return chart_sector
 
     def get_dividend_yields(self):
-        self.__data['chart'] = self.tickers.get_chart()
-        dividend_yields = self.__get_dividends()['dividend_yields']
-        self.__data = {}
+        charts = self.tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+        dividend_yields = self.__get_dividends(charts)['dividend_yields']
         return dividend_yields
     
     def get_fundamentals(self):
-        self.__data['chart'] = self.tickers.get_chart()
-        self.__data['fundamental'] = self.tickers.get_fundamental()
-
+        fundamental_data = self.tickers.get_catalog('analysis_fundamental')
+        charts = self.tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+        
         # get fundamentals
         fundamentals = {}
-        fundamentals['yearly'] = self.__get_fundamental('yearly')
-        fundamentals['quarterly'] = self.__get_fundamental('quarterly')
-        fundamentals['ttm'] = self.__get_fundamental_ttm().T
-
-        self.__data = {}
+        fundamentals['yearly'] = self.__get_fundamental('yearly', fundamental_data['YahooF_Fundamental_Yearly:yearly'], charts)
+        fundamentals['quarterly'] = self.__get_fundamental('quarterly', fundamental_data['YahooF_Fundamental_Quarterly:quarterly'], charts)
+        fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
 
         return fundamentals
-    
+
     def __cache_filter_data(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
         else:
             tickers = Tickers(symbols)
+        print('update analysis cache on %s symbols' % tickers.count)
 
         # handle info
         print('get data: info')
-        self.__data['info'] = tickers.get_info()
-        filter_data =  self.__data['info'].copy(deep=True)
+        info = tickers.get()
+        info = info.merge(
+            tickers.get_catalog('analysis_info')['YahooF_Info:info'],
+            how='outer', left_index=True, right_index=True)
+
+        # start filter data
+        filter_data = info.copy(deep=True)
 
         # name market cap
         market_cap = filter_data['market_cap'] / 1000000
@@ -128,24 +130,18 @@ class Analysis():
         filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
         filter_data = filter_data.drop('fund_overview', axis=1)
 
-        # get chart
+        # handle chart data
         print('get data: chart')
-        self.__data['chart'] = tickers.get_chart()
-
-        # add treasury rate 10y
-        if not '^TNX' in self.__data['chart']:
-            self.__data['treasury_rate_10y'] = Tickers(['^TNX']).get_chart()['^TNX']['adj_close'].iloc[-1]
-        else:
-            self.__data['treasury_rate_10y'] = self.__data['chart']['^TNX']['adj_close'].iloc[-1]
-
+        charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+        
         # get minervini
-        minervini = self.__get_minervini()
+        minervini = self.__get_minervini(charts)
         filter_data = filter_data.merge(minervini, how='left', left_index=True, right_index=True)
 
         # get dividends
-        dividends = self.__get_dividends()
+        dividends = self.__get_dividends(charts)
         for period in ['yearly', 'ttm']:
-            name = 'dividends_yield_'+period
+            name = 'dividend_yields_'+period
             trends = self.__get_trends(dividends['dividend_yields'][period], name=name)
             period_end_name = name+'_period_end'
             end_period = trends[period_end_name].infer_objects()
@@ -153,16 +149,16 @@ class Analysis():
             if period == 'yearly':
                 trends[name+'_end_year'] = end_period
             filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
-        
-        # get fundamental
+
+        # handle fundamentals data
         print('get data: fundamental')
-        self.__data['fundamental'] = tickers.get_fundamental()
+        fundamental_data = tickers.get_catalog('analysis_fundamental')
         
         # get fundamentals
         fundamentals = {}
-        fundamentals['yearly'] = self.__get_fundamental('yearly')
-        fundamentals['quarterly'] = self.__get_fundamental('quarterly')
-        fundamentals['ttm'] = self.__get_fundamental_ttm().T
+        fundamentals['yearly'] = self.__get_fundamental('yearly', fundamental_data['YahooF_Fundamental_Yearly:yearly'], charts)
+        fundamentals['quarterly'] = self.__get_fundamental('quarterly', fundamental_data['YahooF_Fundamental_Quarterly:quarterly'], charts)
+        fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
 
         # get fundamentals trends
         params_skip = ['free cash flow', 'price to free cash flow']
@@ -183,20 +179,23 @@ class Analysis():
                 elif period == 'yearly':
                     trends[name+'_end_year'] = end_period
                 filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
-        
+
         # get dividend coverage ratio
         dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
         dividend_coverage_ratio.name = 'dividend_coverage_ratio'
         filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
 
+        # merge margin of safety
+        margins_of_safety = self._get_margins_of_safety(fundamentals, charts, info)
+        filter_data = filter_data.merge(margins_of_safety, how='left', left_index=True, right_index=True)
+
         # rename ttm parameters and merge
+        fundamentals['ttm'].drop('free cash flow', axis=1, inplace=True)
         rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
         fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
         filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
-        # merge margin of safety
-        margins_of_safety = self._get_margins_of_safety(fundamentals)
-        filter_data = filter_data.merge(margins_of_safety, how='left', left_index=True, right_index=True)
+        # clean up filter data
 
         # keep market_cap_name as market_cap
         filter_data.drop('market_cap', axis=1, inplace=True)
@@ -209,13 +208,10 @@ class Analysis():
         # infer al object columns
         filter_data = filter_data.infer_objects()
 
-        # clear data
-        self.__data = {}
-
         # write to db
         self.db.backup()
         self.db.table_write('analysis', filter_data)
-
+    
     def __add_peers_data(self, filter_data):
         filter_data_all = self.db.table_read('analysis')
         peers_params = [
@@ -241,15 +237,20 @@ class Analysis():
                     if peers_param_data.shape[0] > 0:
                         filter_data.loc[peers_param_data.index, median_param] = median
     
-    def _get_margins_of_safety(self, fundamentals):
-        ftime = FTime()
+    def _get_margins_of_safety(self, fundamentals, charts, info):
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
         if not 'yearly' in fundamentals: return data
         if not 'free cash flow' in fundamentals['yearly']: return data
         if not 'price to free cash flow' in fundamentals['yearly']: return data
-        if not 'ttm' in self.__data['fundamental']: return data
-        if not 'info' in self.__data: return data
-        if not 'treasury_rate_10y' in self.__data: return data
+        if fundamentals['yearly']['price to free cash flow'].empty: return data
+        if not 'ttm' in fundamentals: return data
+        if not 'free cash flow' in fundamentals['ttm'].columns: return data
+
+        # get treasury rate 10y
+        if not '^TNX' in charts:
+            treasury_rate_10y = Tickers(['^TNX']).get_catalog('analysis_chart')['YahooF_Chart:chart']['^TNX']['adj_close'].iloc[-1]
+        else:
+            treasury_rate_10y = charts['^TNX']['adj_close'].iloc[-1]
 
         # get yearly fcf trends
         renames = {
@@ -260,17 +261,16 @@ class Analysis():
         mos.rename(columns=renames, inplace=True)
 
         # get other info
-        if fundamentals['yearly']['price to free cash flow'].empty: return data
         mos['pfcf'] = utils.get_average(fundamentals['yearly']['price to free cash flow'])
-        mos['fcf'] = self.__data['fundamental']['ttm'].loc[mos.index.intersection(self.__data['fundamental']['ttm'].index), 'free_cash_flow']
-        mos['market_cap'] = self.__data['info'].loc[mos.index.intersection(self.__data['info'].index), 'market_cap']
+        mos['fcf'] = fundamentals['ttm'].loc[mos.index.intersection(fundamentals['ttm'].index), 'free cash flow']
+        mos['market_cap'] = info.loc[mos.index.intersection(info.index), 'market_cap']
         mos['pfcf_ttm'] = mos['market_cap'] / mos['fcf']
         mos.dropna(how='any', axis=0, inplace=True)
         mos = mos[(mos['pfcf'] > 0) & (mos['fcf'] > 0)]
         if mos.empty: return data
-        
+
         # calculate intrinsic value
-        discount = (self.__data['treasury_rate_10y'] + 3.0) / 100.0 # at least 10y treasury rate + 3%, change to decimal
+        discount = (treasury_rate_10y + 3.0) / 100.0 # at least 10y treasury rate + 3%, change to decimal
         years = 10
         years = np.arange(10+1)
         for symbol, row in mos.iterrows():
@@ -284,9 +284,9 @@ class Analysis():
             deviation = np.abs(row['pfcf']-row['pfcf_ttm']) / max(np.abs(row['pfcf']),np.abs(row['pfcf_ttm']))
             mos.loc[symbol, 'margin_of_safety_deviation'] = deviation
         mos = mos[['margin_of_safety', 'margin_of_safety_deviation']] * 100 # turn into percent values
-        
+
         return mos
-    
+        
     def __get_trends(self, data, name, check_gaps=True):
         renames = {
             'trend_step_ratio': '%s_trend' % name,
@@ -300,7 +300,7 @@ class Analysis():
 
         return trends_result
 
-    def __get_dividends(self):
+    def __get_dividends(self, charts):
         ftime = FTime()
         dividends = {
             'all': [],
@@ -309,7 +309,7 @@ class Analysis():
             'all': [],
         }
         now = ftime.now_naive
-        for symbol, chart in self.__data['chart'].items():
+        for symbol, chart in charts.items():
             chart = chart.copy()
             if 'dividends' in chart.columns:
                 is_dividend = chart['dividends'] > 0.0
@@ -374,9 +374,9 @@ class Analysis():
 
         return {'dividends': dividends, 'dividend_yields': dividend_yields}
 
-    def __get_minervini(self):
+    def __get_minervini(self, charts):
         chart_data = pd.DataFrame()
-        for symbol, chart in self.__data['chart'].items():
+        for symbol, chart in charts.items():
             # there are some price values that are strings because of Infinity
             if 'adj_close' not in chart.columns: continue
             chart['adj_close'] = chart['adj_close'].astype(float, errors='ignore')
@@ -422,8 +422,18 @@ class Analysis():
 
         return chart_data
 
-    def __get_fundamental_ttm(self):
-        trailing = self.__data['fundamental']['ttm'].copy()
+    def __get_fundamental_ttm(self, fundamental_data, charts):
+        trailing = fundamental_data.copy()
+
+        # add price
+        price = pd.Series(name='price')
+        for symbol, row in trailing.iterrows():
+            if symbol in charts:
+                price[symbol] = charts[symbol]['adj_close'].iloc[-1]
+            else:
+                price[symbol] = np.nan
+        trailing = trailing.merge(price, how='outer', left_index=True, right_index=True)
+
         data = pd.DataFrame()
         if 'current_liabilities' in trailing.columns:
             if 'current_assets' in trailing.columns:
@@ -439,10 +449,11 @@ class Analysis():
                 data['profit margin'] = (trailing['pretax_income'] / trailing['total_revenue']) * 100
             if 'net_income' in trailing.columns:
                 data['net profit margin'] = (trailing['net_income'] / trailing['total_revenue']) * 100
-        # if 'free_cash_flow' in trailing.columns:
-        #     data['free cash flow'] = trailing['free_cash_flow']
+        if 'free_cash_flow' in trailing.columns:
+            data['free cash flow'] = trailing['free_cash_flow']
         if 'eps' in trailing.columns:
             data['eps'] = trailing['eps']
+            data['pe'] = trailing['price']/trailing['eps']
 
         # post fix data
         data = data.T
@@ -455,7 +466,7 @@ class Analysis():
         return data
         
 
-    def __get_fundamental(self, period):
+    def __get_fundamental(self, period, fundamental_data, charts):
         # prepare dataframes
         data = {
             'current ratio': [],
@@ -471,15 +482,15 @@ class Analysis():
         }
 
         # go through each symbol's dataframe
-        for symbol, period_data in self.__data['fundamental'][period].items():
+        for symbol, period_data in fundamental_data.items():
             # prepare dataframe
             symbol_period = period_data.copy()
             symbol_period.dropna(axis=0, how='all', inplace=True)
 
             # add price to dates
-            if symbol in self.__data['chart']:
+            if symbol in charts:
                 for date in symbol_period.index:
-                    prices = self.__data['chart'][symbol].loc[:date]
+                    prices = charts[symbol].loc[:date]
                     if not prices.empty and 'adj_close' in prices.columns:
                         symbol_period.loc[date, 'price'] = prices['adj_close'].iloc[-1]
 
