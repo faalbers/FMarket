@@ -18,8 +18,14 @@ class Scrape():
         'etrade_quote': True,
     }
 
-    def __init__(self, symbols=[]):
+    def __init__(self, symbols=[], settings=[]):
         self.symbols = symbols
+        if len(settings) > 0:
+            for setting in self.settings:
+                if setting in settings:
+                    self.settings[setting] = True
+                else:
+                    self.settings[setting] = False
 
     def update(self, status_only=False, forced=False):
         # remove old scrape.log

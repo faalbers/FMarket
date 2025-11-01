@@ -5,9 +5,9 @@ import threading, os
 from tkinter.scrolledtext import ScrolledText
 
 class Scrape_GUI(tk.Tk):
-    def __init__(self, symbols=[]):
+    def __init__(self, symbols=[], settings=[]):
         super().__init__()
-        self.scrape = Scrape(symbols=symbols)
+        self.scrape = Scrape(symbols=symbols, settings=settings)
 
         self.__build_gui()
 
