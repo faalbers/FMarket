@@ -138,6 +138,11 @@ class Analysis():
         # handle chart data
         print('get data: chart')
         charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+
+        # get history years
+        now = FTime().now_naive
+        for symbol, chart in charts.items():
+            filter_data.loc[symbol, 'history_years'] = int((now - chart.index[0]).days / 365)
         
         # get minervini
         minervini = self.__get_minervini(charts)
@@ -433,7 +438,7 @@ class Analysis():
         # add price
         price = pd.Series(name='price')
         for symbol, row in trailing.iterrows():
-            if symbol in charts:
+            if symbol in charts and 'adj_close' in charts[symbol]:
                 price[symbol] = charts[symbol]['adj_close'].iloc[-1]
             else:
                 price[symbol] = np.nan
