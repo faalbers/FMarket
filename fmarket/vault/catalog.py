@@ -98,10 +98,7 @@ class Catalog():
         'analysis_fundamental': {
             YahooF_Fundamental_Quarterly: {
                 'ttm': [
-                    ['CurrentAssets', 'current_assets'],
-                    ['CurrentLiabilities', 'current_liabilities'],
-                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    ['FreeCashFlow', 'free_cash_flow'],
+                    # Income Statement
                     ['TotalRevenue', 'total_revenue'],
                     ['GrossProfit', 'gross_profit'],
                     ['OperatingIncome', 'operating_income'],
@@ -109,12 +106,17 @@ class Catalog():
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
                     ['DilutedAverageShares', 'shares'],
+
+                    # Balance Sheet
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    
+                    # Cash Flow Statement
+                    ['FreeCashFlow', 'free_cash_flow'],
                 ],
                 'quarterly': [
-                    ['CurrentAssets', 'current_assets'],
-                    ['CurrentLiabilities', 'current_liabilities'],
-                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    ['FreeCashFlow', 'free_cash_flow'],
+                    # Income Statement
                     ['TotalRevenue', 'total_revenue'],
                     ['GrossProfit', 'gross_profit'],
                     ['OperatingIncome', 'operating_income'],
@@ -122,14 +124,19 @@ class Catalog():
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
                     ['DilutedAverageShares', 'shares'],
+
+                    # Balance Sheet
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    
+                    # Cash Flow Statement
+                    ['FreeCashFlow', 'free_cash_flow'],
                 ],
             },
             YahooF_Fundamental_Yearly: {
                 'yearly': [
-                    ['CurrentAssets', 'current_assets'],
-                    ['CurrentLiabilities', 'current_liabilities'],
-                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    ['FreeCashFlow', 'free_cash_flow'],
+                    # Income Statement
                     ['TotalRevenue', 'total_revenue'],
                     ['GrossProfit', 'gross_profit'],
                     ['OperatingIncome', 'operating_income'],
@@ -137,6 +144,14 @@ class Catalog():
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
                     ['DilutedAverageShares', 'shares'],
+
+                    # Balance Sheet
+                    ['CurrentAssets', 'current_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    
+                    # Cash Flow Statement
+                    ['FreeCashFlow', 'free_cash_flow'],
                 ],
             },
         },
