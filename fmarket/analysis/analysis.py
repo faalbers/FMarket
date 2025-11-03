@@ -27,9 +27,7 @@ class Analysis():
                 filter_data = self.db.table_read('analysis', keys=symbols)
         
         # add additional info data
-        tickers = Tickers(sorted(filter_data.index))
-        info_add = tickers.get_catalog('info')['YahooF_Info:info']
-        filter_data = filter_data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
+        filter_data = self.__add_info_data(filter_data)
 
         # add peers data
         self.__add_peers_data(filter_data)
@@ -171,7 +169,8 @@ class Analysis():
         fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
 
         # get fundamentals trends
-        params_skip = ['free cash flow', 'price to free cash flow']
+        # params_skip = ['free cash flow', 'price to free cash flow']
+        params_skip = ['price to free cash flow']
         for period in ['yearly', 'quarterly']:
             for param, trend_data in fundamentals[period].items():
                 if trend_data.empty: continue
@@ -189,6 +188,9 @@ class Analysis():
                 elif period == 'yearly':
                     trends[name+'_end_year'] = end_period
                 filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
+        # # remove some fundamentals and just keep trends
+        # for param in ['total_revenue', 'free_cash_flow']:
+        #     filter_data = filter_data.drop([param+'_yearly', param+'_quarterly'], axis=1)
 
         # get dividend coverage ratio
         dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
@@ -222,10 +224,23 @@ class Analysis():
         self.db.backup()
         self.db.table_write('analysis', filter_data)
 
+    def __add_info_data(self, data):
+        tickers = Tickers(sorted(data.index))
+        info_add = tickers.get_catalog('info')['YahooF_Info:info']
+        
+        # fix 'infinity' from info
+        for column in info_add.columns[info_add.apply(lambda x: 'Infinity' in x.values)]:
+            info_add.loc[info_add[column] == 'Infinity', column] = np.nan
+
+        data = data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
+        return data
+
     def __add_peers_data(self, filter_data):
         filter_data_all = self.db.table_read('analysis')
+        filter_data_all = self.__add_info_data(filter_data_all)
         peers_params = [
             'pe_ttm',
+            'pe_ttm_info',
             'pe_forward',
             'peg_ttm',
         ]
@@ -485,10 +500,15 @@ class Analysis():
             'operating profit margin': [],
             'profit margin': [],
             'net profit margin': [],
+            'return on equity': [],
+            'return on assets': [],
             'pe': [],
+            'pb': [],
+            'ps': [],
             'eps': [],
             'free cash flow': [],
             'price to free cash flow': [],
+            'total revenue': [],
         }
 
         # go through each symbol's dataframe
@@ -519,6 +539,7 @@ class Analysis():
                 if 'cash_and_cash_equivalents' in symbol_period.columns:
                     add_values('cash ratio', symbol, (symbol_period['cash_and_cash_equivalents'] / symbol_period['current_liabilities']) * 100.0)
             if 'total_revenue' in symbol_period.columns:
+                add_values('total revenue', symbol, symbol_period['total_revenue'])
                 if 'gross_profit' in symbol_period.columns:
                     add_values('gross profit margin', symbol, (symbol_period['gross_profit'] / symbol_period['total_revenue']) * 100)
                 if 'operating_income' in symbol_period.columns:
@@ -527,6 +548,11 @@ class Analysis():
                     add_values('profit margin', symbol, (symbol_period['pretax_income'] / symbol_period['total_revenue']) * 100)
                 if 'net_income' in symbol_period.columns:
                     add_values('net profit margin', symbol, (symbol_period['net_income'] / symbol_period['total_revenue']) * 100)
+            if 'net_income' in symbol_period.columns:
+                if 'stockholders_equity' in symbol_period.columns:
+                    add_values('return on equity', symbol, (symbol_period['net_income'] / symbol_period['stockholders_equity']) * 100)
+                if 'total_assets' in symbol_period.columns:
+                    add_values('return on assets', symbol, (symbol_period['net_income'] / symbol_period['total_assets']) * 100)
             if 'free_cash_flow' in symbol_period.columns:
                 add_values('free cash flow', symbol, symbol_period['free_cash_flow'])
             if 'price' in symbol_period.columns:
@@ -540,6 +566,12 @@ class Analysis():
                         fcf = symbol_period['free_cash_flow']
                         if period == 'quarterly': fcf = fcf * 4
                         add_values('price to free cash flow', symbol, market_cap / fcf)
+                    if 'book_value' in symbol_period.columns:
+                        add_values('pb', symbol, symbol_period['price']/(symbol_period['book_value']/symbol_period['shares']))
+                    if 'total_revenue' in symbol_period.columns:
+                        add_values('ps', symbol, symbol_period['price']/(symbol_period['total_revenue']/symbol_period['shares']))
+                        
+
             if 'eps' in symbol_period.columns:
                 add_values('eps', symbol, symbol_period['eps'])
 

@@ -105,13 +105,16 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
-                    ['DilutedAverageShares', 'shares'],
+                    # ['DilutedAverageShares', 'shares'],
+                    ['OrdinarySharesNumber', 'shares'],
 
                     # Balance Sheet
                     ['CurrentAssets', 'current_assets'],
+                    ['TotalAssets', 'total_assets'],
                     ['CurrentLiabilities', 'current_liabilities'],
                     ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    
+                    ['StockholdersEquity', 'stockholders_equity'],
+
                     # Cash Flow Statement
                     ['FreeCashFlow', 'free_cash_flow'],
                 ],
@@ -123,13 +126,17 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
-                    ['DilutedAverageShares', 'shares'],
+                    # ['DilutedAverageShares', 'shares'],
+                    ['OrdinarySharesNumber', 'shares'],
 
                     # Balance Sheet
                     ['CurrentAssets', 'current_assets'],
+                    ['TotalAssets', 'total_assets'],
                     ['CurrentLiabilities', 'current_liabilities'],
                     ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    
+                    ['StockholdersEquity', 'stockholders_equity'],
+                    ['TangibleBookValue', 'book_value'],
+
                     # Cash Flow Statement
                     ['FreeCashFlow', 'free_cash_flow'],
                 ],
@@ -143,13 +150,18 @@ class Catalog():
                     ['PretaxIncome', 'pretax_income'],
                     ['NetIncome', 'net_income'],
                     ['DilutedEPS', 'eps'],
-                    ['DilutedAverageShares', 'shares'],
+                    # ['DilutedAverageShares', 'shares'],
+                    ['OrdinarySharesNumber', 'shares'],
 
                     # Balance Sheet
                     ['CurrentAssets', 'current_assets'],
+                    ['TotalAssets', 'total_assets'],
                     ['CurrentLiabilities', 'current_liabilities'],
                     ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                    ['StockholdersEquity', 'stockholders_equity'],
+                    ['TangibleBookValue', 'book_value'],
                     
+
                     # Cash Flow Statement
                     ['FreeCashFlow', 'free_cash_flow'],
                 ],
