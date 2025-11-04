@@ -21,6 +21,7 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
             'profit margin',
             'net profit margin',
             'free cash flow',
+            'total revenue',
         ]
         self.data_type = tk.StringVar()
         self.data_type.set(data_type[0])
@@ -63,7 +64,7 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
     def get_fudamentals(self):
         data_type = self.data_type.get()
         y_label = data_type + ' %'
-        if data_type == 'free cash flow':
+        if data_type in ['free cash flow', 'total revenue']:
             y_label = data_type + ' (millions)'
 
         data_period = self.data_period.get()
