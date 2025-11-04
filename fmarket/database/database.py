@@ -284,3 +284,35 @@ class Database():
                 timeseries.update(result)
         
         return timeseries
+
+    def get_table_names(self):
+        cursor = self.connection.cursor()
+        names = [ x[0] for x in cursor.execute("SELECT name FROM sqlite_schema WHERE type='table'")]
+        cursor.close()
+        return sorted(names)
+
+    def get_table_info(self, table_name):
+        table_info = {
+            'columns': [],
+            'primaryKeyColumns': [],
+            'columnTypes': {},
+            'rows': 0,
+            'sql': '',
+        }
+
+        cursor = self.connection.cursor()
+        table_columns = cursor.execute("PRAGMA table_info('%s')" % table_name).fetchall()
+        if len(table_columns) == 0: return {}
+
+        row_count = cursor.execute("SELECT COUNT(*) FROM '%s'" % table_name).fetchone()
+        sql = cursor.execute("SELECT sql FROM sqlite_schema WHERE type='table' AND name='%s'" % table_name).fetchone()
+        cursor.close()
+
+        for table_column in table_columns:
+            table_info['columns'].append(table_column[1])
+            if table_column[5]: table_info['primaryKeyColumns'].append(table_column[1])
+            table_info['columnTypes'][table_column[1]] = table_column[2]
+        table_info['sql'] = sql[0]
+        table_info['rows'] = row_count[0]
+
+        return table_info

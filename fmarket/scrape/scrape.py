@@ -2,7 +2,8 @@ from ..vault import Vault
 from .scrape_multi import Scrape_Multi
 from .scrapers import *
 from ..tickers import Tickers
-from ..utils import Stop
+from ..utils import Stop, storage
+from ..database import Database
 import os
 from pprint import pp
 
@@ -112,4 +113,104 @@ class Scrape():
         if not status_only: Scrape_Multi(scrapers)
 
         return status_all
+
+    def get_database_params(self, update=False):
+        db_names = set()
+        if self.settings['symbols']:
+            db_names.add(FMP_Stocklist.db_name)
+            db_names.add(Polygon_Tickers.db_name)
+        if self.settings['sp500_index']:
+            db_names.add(YahooF_SP500.db_name)
+        if self.settings['polygon_news']:
+            db_names.add(Polygon_News.db_name)
+        if self.settings['yahoof_info']:
+            db_names.add(YahooF_Info.db_name)
+            db_names.add(YahooF_Fund_Overview.db_name)
+            db_names.add(YahooF_Info_Quarterly.db_name)
+        if self.settings['yahoof_fundamental']:
+            db_names.add(YahooF_Fundamental_Yearly.db_name)
+            db_names.add(YahooF_Fundamental_Quarterly.db_name)
+        if self.settings['yahoof_chart']:
+            db_names.add(YahooF_Chart.db_name)
+        if self.settings['finviz_news']:
+            db_names.add(Finviz_News.db_name)
+        if self.settings['etrade_quote']:
+            db_names.add(Etrade_Quote.db_name)
+
+        params_cached =  storage.load('database/params_all')
+        if isinstance(params_cached, type(None)):
+            params_cached = {}
+
+        if update:
+            db_names_update = sorted(db_names)
+        else:
+            db_names_update = sorted(db_names.difference(params_cached.keys()))
+
+        table_info = {}
+        for db_name in db_names_update:
+            table_info[db_name] = {}
+            db = Database(db_name)
+            for table_name in db.get_table_names():
+                print(db_name,':',table_name,'(get)')
+                current_info = table_info[db_name]
+                sub_names = table_name.split('_')
+                count = len(sub_names)
+                for sub_name in sub_names:
+                    count -= 1
+                    if count == 0:
+                        if isinstance(current_info, dict):
+                            current_info[sub_name] = set(db.get_table_info(table_name)['columns'])
+                        elif isinstance(current_info, set):
+                            current_info.add(sub_name)
+                    else:
+                        if not sub_name in current_info:
+                            current_info[sub_name] = current_info = {}
+                        else:
+                            current_info = current_info[sub_name]
+        
+
+        def table_info_recurse(data_read, param_name, params_all):
+            values = set()
+            values_count = 0
+            for key, value in data_read.items():
+                if isinstance(value, dict):
+                    if len(param_name) > 0:
+                        param_name_new = param_name + '_' + key
+                    else:
+                        param_name_new = key
+                    table_info_recurse(value, param_name_new, params_all)
+                else:
+                    if len(param_name) > 0:
+                        param_name_value = param_name + '_' + key
+                    else:
+                        param_name_value = key
+                    values.update(value)
+                    values_count += 1
+            if values_count == 1:
+                params_all[param_name_value] = values
+                print(param_name_value, values)
+            elif values_count > 1:
+                params_all[param_name] = values
+                print(param_name, values)
+        
+        params_updated = {}
+        for db_name, tables in table_info.items():
+            params_updated[db_name] = {}
+            print(db_name,':')
+            table_info_recurse(tables, '', params_updated[db_name])
+
+        for db_name, tables in params_updated.items():
+            params_cached[db_name] = params_updated[db_name]
+
+        storage.save(params_cached, 'database/params_all')
+
+        params_requested = {}
+        for db_name in db_names:
+            params_requested[db_name] = params_cached[db_name]
+
+        return params_requested
+
+        # storage.save(params_all, 'database/params_all')
+
+        # return params_all
 

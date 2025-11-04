@@ -22,15 +22,17 @@ class Scrape_GUI(tk.Tk):
         frame_actions.pack(anchor='w', fill='x', padx=10, pady=10)
 
         # add actions
-        button = tk.Button(frame_actions, text='Update Status', command=self.update_status)
-        button.pack(side='left')
+        tk.Button(frame_actions, text='Update Status', command=self.update_status).pack(side='left')
         self.button_update = tk.Button(frame_actions, text='Update', command=self.update)
         self.button_update.pack(side='left')
-        button = tk.Button(frame_actions, text='Update Stop', command=self.update_stop)
-        button.pack(side='left')
-        self.forced = tk.BooleanVar()
+        tk.Button(frame_actions, text='Update Stop', command=self.update_stop).pack(side='left')
+        self.forced_update = tk.BooleanVar()
         tk.Checkbutton(frame_actions, text='forced update',
-            variable=self.forced).pack(side='left')
+            variable=self.forced_update).pack(side='left')
+        self.params_update = tk.BooleanVar()
+        tk.Checkbutton(frame_actions, text='update',
+            variable=self.params_update).pack(side='right')
+        tk.Button(frame_actions, text='database params', command=self.get_database_params).pack(side='right')
 
         scrape_info_frame = tk.Frame(self)
         scrape_info_frame.pack()
@@ -56,11 +58,11 @@ class Scrape_GUI(tk.Tk):
             self.scrape.settings[setting] = variable.get()
     
     def update_status(self):
-        status = self.scrape.update(status_only=True, forced=self.forced.get())
+        status = self.scrape.update(status_only=True, forced=self.forced_update.get())
         self.scrape_update_status_text(status)
     
     def update_thread(self):
-        self.scrape.update(forced=self.forced.get())
+        self.scrape.update(forced=self.forced_update.get())
         self.button_update.config(state=tk.NORMAL)
         self.quit()
 
@@ -74,6 +76,19 @@ class Scrape_GUI(tk.Tk):
     def update_stop(self):
         Stop().set
 
+    def get_database_params(self):
+        params =self.scrape.get_database_params(update=self.params_update.get())
+        params_text = ''
+        for db_name, tables in params.items():
+            params_text += f'\n{db_name}:\n'
+            for table, columns in tables.items():
+                params_text += f'\t\t{table}:\n'
+                for column in sorted(columns):
+                    params_text += f'\t\t\t{column}\n'
+        self.scrape_update_status_text(params_text)
+        with open('database_params.txt', 'w') as file:
+            file.write(params_text)
+        
     def scrape_update_status_text(self, status):
         self.log_text_widget.config(state='normal')
         
