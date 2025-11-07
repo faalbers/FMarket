@@ -193,9 +193,10 @@ class Analysis():
         #     filter_data = filter_data.drop([param+'_yearly', param+'_quarterly'], axis=1)
 
         # get dividend coverage ratio
-        dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
-        dividend_coverage_ratio.name = 'dividend_coverage_ratio'
-        filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
+        if not dividends['dividend_yields']['ttm'].empty:
+            dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
+            dividend_coverage_ratio.name = 'dividend_coverage_ratio'
+            filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
 
         # merge margin of safety
         margins_of_safety = self._get_margins_of_safety(fundamentals, charts, info)
@@ -280,7 +281,7 @@ class Analysis():
         # get yearly fcf trends
         renames = {
             'volatility': 'margin_of_safety_volatility',
-            'trend_step_ratio': 'growth',
+            'step_growth': 'growth',
         }
         mos = utils.get_trends(fundamentals['yearly']['free cash flow'])[list(renames)]
         mos.rename(columns=renames, inplace=True)
@@ -299,7 +300,10 @@ class Analysis():
         years = 10
         years = np.arange(10+1)
         for symbol, row in mos.iterrows():
-            values = row['fcf'] * (1 + (row['growth']/100.0)) ** years
+            year_delta = row['fcf'] * (row['growth']/100.0)
+            values = [row['fcf']+(year_delta*y) for y in years]
+            # print(values[0], values[-1])
+
             fcf_growth = pd.Series(values).to_frame('fcf')
             fcf_growth['fcf_dcf'] = fcf_growth['fcf'] / ((1.0 + discount) ** years)
             terminal_value = fcf_growth['fcf_dcf'].iloc[-1] * row['pfcf'] # using exit_multiple
@@ -308,13 +312,14 @@ class Analysis():
             mos.loc[symbol, 'margin_of_safety'] = margin_of_safety
             deviation = np.abs(row['pfcf']-row['pfcf_ttm']) / max(np.abs(row['pfcf']),np.abs(row['pfcf_ttm']))
             mos.loc[symbol, 'margin_of_safety_deviation'] = deviation
+
         mos = mos[['margin_of_safety', 'margin_of_safety_deviation']] * 100 # turn into percent values
 
         return mos
-        
+
     def __get_trends(self, data, name, check_gaps=True):
         renames = {
-            'trend_step_ratio': '%s_trend' % name,
+            'step_growth': '%s_growth' % name,
             'step_count': '%s_count' % name,
             'volatility': '%s_volatility' % name,
             'last_valid_value': name,

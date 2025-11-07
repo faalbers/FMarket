@@ -12,10 +12,12 @@ def get_average(df, median_threshold=0.1):
     average.loc[average['deviation'] <= median_threshold, 'average'] = average['mean']
     return average['average']
 
-def get_trends(df, ratio_base=None, check_gaps=True):
+def get_trends(df, check_gaps=True):
     df = df.dropna(how='all', axis=0)
-    trends = pd.DataFrame(columns=['trend', 'trend_ratio', 'trend_step', 'trend_step_ratio', 'volatility', 'step_count', 'last_valid_value', 'last_valid_index'])
+
+    trends = pd.DataFrame(columns=['last_valid_value', 'last_valid_index', 'step_count', 'step_growth', 'volatility'])
     for column in df.columns:
+        # analyze per column
         column_data = df[column]
 
         last_valid_index = column_data.last_valid_index()
@@ -51,25 +53,21 @@ def get_trends(df, ratio_base=None, check_gaps=True):
         trends.loc[column, 'step_count'] = column_data.shape[0]
 
         if column_data.shape[0] >= 2:
+            column_data
             coeffs = np.polyfit(column_data.index, column_data.values, 1)
-            trend = np.polyval(coeffs, column_data.index)
-            trend_mean = np.abs(trend.mean())
-        
-            # get trend values
-            trends.loc[column, 'trend_step'] = coeffs[0]
-            trends.loc[column, 'trend'] = coeffs[0] * column_data.shape[0]
-            if ratio_base is not None:
-                trends.loc[column, 'trend_step_ratio'] = (coeffs[0] / np.abs(ratio_base)) * 100.0
-                trends.loc[column, 'trend_ratio'] = (coeffs[0] / np.abs(ratio_base)) * column_data.shape[0] * 100.0
-            elif trend_mean != 0:
-                trends.loc[column, 'trend_step_ratio'] = (coeffs[0] / trend_mean) * 100.0
-                trends.loc[column, 'trend_ratio'] = (coeffs[0] / trend_mean) * column_data.shape[0] * 100.0
-            
+            trend_past = np.polyval(coeffs, column_data.index)
+            trend_future = np.polyval([coeffs[0], trend_past[-1]], column_data.index)
+            if trend_future[0] != 0:
+                trends.loc[column, 'step_growth'] = ((trend_future[1]-trend_future[0]) / np.abs(trend_future[0])) * 100.0
+            # trend_future = trend_future[trend_future >= 0]
+            # if trend_future.shape[0] >= 2:
+            #     cagr = ((trend_future[-1] / trend_future[0]) ** (1 / (trend_future.shape[0] - 1))) - 1
+            #     trends.loc[column, 'cagr'] = cagr * 100.0
+
             # calculate volatility
+            residual_std = np.std(column_data.values - trend_past)
+            trend_mean = trend_past.mean()
             if trend_mean != 0:
-                residual_std = np.std(column_data.values - trend)
-                trends.loc[column, 'volatility'] = (residual_std / trend_mean) * 100.0
-            else:
-                trends.loc[column, 'volatility'] = 0.0
-    
+                trends.loc[column, 'volatility'] = (residual_std / np.abs(trend_mean)) * 100.0
+
     return trends
