@@ -99,10 +99,10 @@ class Analysis_GUI(tk.Tk):
                     else:
                         value = self.filter_data[column_b]
                 elif not isinstance(value, type(None)):
-                    if value.isnumeric():
-                        value = int(value)
-                    elif value.replace('.', '').isnumeric():
+                    try:
                         value = float(value)
+                    except:
+                        pass
 
                 if function == '==':
                     or_select = or_select | (test_series == value)
