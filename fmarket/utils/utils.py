@@ -18,7 +18,7 @@ def get_trends(df, check_gaps=True):
     trends = pd.DataFrame(columns=['last_valid_value', 'last_valid_index', 'step_count', 'step_growth', 'volatility'])
     for column in df.columns:
         # analyze per column
-        column_data = df[column]
+        column_data = df[column].dropna()
 
         last_valid_index = column_data.last_valid_index()
         if last_valid_index is None:
@@ -53,7 +53,6 @@ def get_trends(df, check_gaps=True):
         trends.loc[column, 'step_count'] = column_data.shape[0]
 
         if column_data.shape[0] >= 2:
-            column_data
             coeffs = np.polyfit(column_data.index, column_data.values, 1)
             trend_past = np.polyval(coeffs, column_data.index)
             trend_future = np.polyval([coeffs[0], trend_past[-1]], column_data.index)
