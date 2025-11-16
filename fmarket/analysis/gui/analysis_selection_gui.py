@@ -9,7 +9,7 @@ from .analysis_dividends_gui import Analysis_Dividends_GUI
 from .analysis_fundamentals_gui import Analysis_Fundamentals_GUI
 
 class Analysis_Selection_GUI(tk.Toplevel):
-    def __init__(self, parent, selection_data, columns):
+    def __init__(self, parent, selection_data):
         super().__init__(parent)
 
         # reset index and sort columns
@@ -21,7 +21,7 @@ class Analysis_Selection_GUI(tk.Toplevel):
         self.title('Market Analysis Selection: %s symbols' % self.data.shape[0])
 
         # add data view
-        self.frame_data = Frame_Data_Tree(self, self.data, columns)
+        self.frame_data = Frame_Data_Tree(self, self.data)
         self.frame_data.pack(padx=10,pady=10, fill=tk.BOTH, expand=True)
 
         # action buttons frame
@@ -66,12 +66,13 @@ class Analysis_Selection_GUI(tk.Toplevel):
         pass
 
 class Frame_Data_Tree(tk.Frame):
-    def __init__(self, parent, data, columns):
+    def __init__(self, parent, data):
         # super().__init__(parent, highlightbackground="#4232F7", highlightthickness=2)
         super().__init__(parent)
         self.parent = parent
         self.data = data
 
+        columns = ['symbol','name']
         scroll_columns = {c: (c in columns) for c in self.data.columns}
         self.frame_scroll_columns = Frame_Scroll_Columns(self, scroll_columns)
         self.frame_scroll_columns.pack(side='left', fill=tk.BOTH)

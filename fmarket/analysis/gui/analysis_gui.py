@@ -62,14 +62,8 @@ class Analysis_GUI(tk.Tk):
 
     def analyze(self):
         symbols, columns = self.get_filtered()
-        if len(columns) == 0:
-            columns = ['symbol','name']
-        else:
-            columns.discard('symbol')
-            columns.discard('name')
-            columns = ['symbol','name'] + [c for c in self.filter_data.columns if c in columns]
         selection_data = self.filter_data.loc[symbols]
-        Analysis_Selection_GUI(self, selection_data, columns)
+        Analysis_Selection_GUI(self, selection_data)
 
     def get_filtered(self):
         filters = self.frame_filters.get_filters()
