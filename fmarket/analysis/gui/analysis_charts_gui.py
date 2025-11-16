@@ -86,6 +86,7 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
     def sector_relative_changed(self):
         if self.sector.get() == 'N/A':
             self.sector_relative.set(0)
+            return
         self.plot_charts()
 
     def auto_date_range_changed(self, auto_date_range):
