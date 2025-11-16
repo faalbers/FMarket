@@ -244,6 +244,9 @@ class Analysis():
             'pe_ttm_info',
             'pe_forward',
             'peg_ttm',
+            'current_ratio_yearly',
+            'gross_profit_margin_yearly',
+            'net_profit_margin_yearly',
         ]
         peers_types = [
             'sector',
@@ -471,6 +474,7 @@ class Analysis():
             if 'cash_and_cash_equivalents' in trailing.columns:
                 data['cash ratio'] = (trailing['cash_and_cash_equivalents'] / trailing['current_liabilities']) * 100.0
         if 'total_revenue' in trailing.columns:
+            data['total revenue'] = trailing['total_revenue']
             if 'gross_profit' in trailing.columns:
                 data['gross profit margin'] = (trailing['gross_profit'] / trailing['total_revenue']) * 100
             if 'operating_income' in trailing.columns:
