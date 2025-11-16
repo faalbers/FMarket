@@ -74,6 +74,13 @@ class Database():
         except FileNotFoundError:
             return 'File backup from %s failed' % filename
 
+    def table_exists(self, table_name):
+        cursor = self.connection.cursor()
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?", (table_name,))
+        result = cursor.fetchone()
+        cursor.close()
+        return result is not None
+
     def table_read(self, table_name, keys=[], columns=[]):
         cursor = self.connection.cursor()
 
@@ -127,7 +134,7 @@ class Database():
             table_data[column] = table_data[column].apply(lambda x: json.loads(x) if pd.notna(x) else x)
 
         return table_data
-
+    
     def table_write(self, table_name, df, replace_table=False, update=True):
         # since we are manipulating df, make a copy
         df = df.copy()
