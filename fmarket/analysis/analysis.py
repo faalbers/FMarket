@@ -246,6 +246,8 @@ class Analysis():
             'peg_ttm',
             'current_ratio_yearly',
             'gross_profit_margin_yearly',
+            'gross_profit_margin_ttm',
+            'operating_profit_margin_ttm',
             'net_profit_margin_yearly',
         ]
         peers_types = [
