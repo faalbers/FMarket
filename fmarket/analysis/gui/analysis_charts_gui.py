@@ -65,9 +65,9 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
 
     def symbols_changed(self, symbols):
         self.symbols = symbols
-        if self.sector.get() != 'All':
-            self.sector.set('N/A')
-            self.sector_relative.set(0)
+        # if self.sector.get() != 'All':
+        #     self.sector.set('N/A')
+        #     self.sector_relative.set(0)
         self.plot_charts()
 
     def sector_changed(self, sector):
