@@ -6,7 +6,7 @@ from datetime import datetime
 import pandas as pd
 from ....utils import FTime
 
-class YahooF_Info_Quarterly(YahooF):
+class YahooF_Estimates(YahooF):
     db_name = 'yahoof_info'
 
     def __init__(self):
@@ -18,7 +18,7 @@ class YahooF_Info_Quarterly(YahooF):
         symbols, info = self.scrape_status(key_values=key_values, forced=forced)
         if len(symbols) == 0: return
 
-        self.logger = logging.getLogger('YahooF_Info_Quarterly'.ljust(25, ' '))
+        self.logger = logging.getLogger('YahooF_Estimates'.ljust(25, ' '))
 
         self.logger.info('start update')
         
@@ -100,7 +100,7 @@ class YahooF_Info_Quarterly(YahooF):
         if not isinstance(response_data['growth_estimates'], type(None)):
             info['growthEstimates'] = response_data['growth_estimates'].T.to_dict()
 
-        status = pd.DataFrame({'info_quarterly': 0}, index=[symbol])
+        status = pd.DataFrame({'estimates': 0}, index=[symbol])
         status.index.name = 'symbol'
 
         if len(info) > 0: # we found stuff
@@ -108,7 +108,7 @@ class YahooF_Info_Quarterly(YahooF):
             info = pd.DataFrame([info], index=[symbol])
             info.index.name = 'symbol'
             self.db.table_write('info', info)
-            status.loc[symbol, 'info_quarterly'] = int(ftime.now_local.timestamp())
+            status.loc[symbol, 'estimates'] = int(ftime.now_local.timestamp())
             valid = True
         
         # update status
@@ -125,7 +125,7 @@ class YahooF_Info_Quarterly(YahooF):
         status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
         info = '%sdatabase: %s, forced: %s\n' % (tabs_string, self.db_name, forced)
-        info += '%s  table: info (add quarterly data):\n' % (tabs_string)
+        info += '%s  table: info (add estimates):\n' % (tabs_string)
         status = []
         if forced:
             # we are forcing all symbols
@@ -133,9 +133,9 @@ class YahooF_Info_Quarterly(YahooF):
             info += '%s    update     : %s symbols (forced)\n' % (tabs_string, len(status))
         else:
             # do status check
-            if status_db.shape[0] > 0 and 'info_quarterly' in status_db.columns:
-                symbols_skip = status_db['info_quarterly'] == 0 # skip symbols that did not work last time
-                symbols_skip |= status_db['info_quarterly'] >= five_days_ts # skip symbols that were done within the last 5 days
+            if status_db.shape[0] > 0 and 'estimates' in status_db.columns:
+                symbols_skip = status_db['estimates'] == 0 # skip symbols that did not work last time
+                symbols_skip |= status_db['estimates'] >= five_days_ts # skip symbols that were done within the last 5 days
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:
                 # we add all key_values to status

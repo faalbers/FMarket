@@ -76,7 +76,7 @@ class YahooF_Fund_Overview(YahooF):
 
         status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
-        info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
+        info = '%sdatabase: %s, forced: %s\n' % (tabs_string, self.db_name, forced)
         info += '%s  table: info (add fund_overview):\n' % (tabs_string)
         status = []
         if forced:

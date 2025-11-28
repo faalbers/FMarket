@@ -70,12 +70,11 @@ class Scrape():
                     scrapers.append([YahooF_Fund_Overview, sorted(symbols_fund.index), forced]) 
         
             symbols = tickers_active.get()
-            # add fund_overview
+            # add estimates
             if 'type' in symbols:
-                # add quarterly equity data
                 symbols_equity = symbols[symbols['type'] == 'EQUITY']
                 if symbols_equity.shape[0] > 0:
-                    scrapers.append([YahooF_Info_Quarterly, sorted(symbols_equity.index), forced]) 
+                    scrapers.append([YahooF_Estimates, sorted(symbols_equity.index), forced]) 
 
         # add fundamental
         if self.settings['yahoof_fundamental']:
@@ -126,7 +125,7 @@ class Scrape():
         if self.settings['yahoof_info']:
             db_names.add(YahooF_Info.db_name)
             db_names.add(YahooF_Fund_Overview.db_name)
-            db_names.add(YahooF_Info_Quarterly.db_name)
+            db_names.add(YahooF_Estimates.db_name)
         if self.settings['yahoof_fundamental']:
             db_names.add(YahooF_Fundamental_Yearly.db_name)
             db_names.add(YahooF_Fundamental_Quarterly.db_name)

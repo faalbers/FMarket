@@ -3,6 +3,6 @@ from .info import YahooF_Info
 from .sp500 import YahooF_SP500
 from .chart import YahooF_Chart
 from .fund_overview import YahooF_Fund_Overview
-from .info_quarterly import YahooF_Info_Quarterly
+from .estimates import YahooF_Estimates
 from .fundamental_yearly import YahooF_Fundamental_Yearly
 from .fundamental_quarterly import YahooF_Fundamental_Quarterly

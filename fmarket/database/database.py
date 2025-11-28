@@ -335,4 +335,13 @@ class Database():
         
         cursor.close()
             
+    def table_rename_columns(self, table_name, renames):
+        cursor = self.connection.cursor()
+
+        for column, column_rename in renames.items():
+            try:
+                cursor.execute("ALTER TABLE '%s' RENAME COLUMN '%s' TO '%s'" % (table_name, column, column_rename))
+            except:
+                print('table or column does not exist: %s.%s' % (table_name, column))
         
+        cursor.close()
