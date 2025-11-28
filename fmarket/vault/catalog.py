@@ -88,6 +88,8 @@ class Catalog():
                     # ['forwardPE', 'pe_forward'],
                     # ['trailingPegRatio', 'peg_ttm'],
                     ['fundOverview', 'fund_overview'],
+                    ['earningsEstimate', 'earnings_estimate'],
+                    ['growthEstimates', 'growth_estimates'],
                 ],
             },
         },

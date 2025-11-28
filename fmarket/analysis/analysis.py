@@ -136,6 +136,39 @@ class Analysis():
         filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
         filter_data = filter_data.drop('fund_overview', axis=1)
 
+        # handle earnings_estimate
+        is_earnings_estimate = filter_data['earnings_estimate'].notna()
+        periods = {
+            '0q': 'curr_qtr',
+            '+1q': 'next_qtr',
+            '0y': 'curr_year',
+            '+1y': 'next_year',
+        }
+        for period, period_name in periods.items():
+            filter_data.loc[is_earnings_estimate, 'eps_est_%s_avg' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('avg'))
+            filter_data.loc[is_earnings_estimate, 'eps_est_%s_low' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('low'))
+            filter_data.loc[is_earnings_estimate, 'eps_est_%s_high' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('high'))
+            filter_data.loc[is_earnings_estimate, 'eps_est_%s_growth' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('growth'))
+            filter_data['eps_est_%s_growth' % period_name] = filter_data['eps_est_%s_growth' % period_name]*100.0
+            filter_data.loc[is_earnings_estimate, 'eps_est_%s_analysts' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('numberOfAnalysts'))
+            filter_data.loc[is_earnings_estimate, 'eps_%s_year_ago' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('yearAgoEps'))
+        filter_data = filter_data.drop('earnings_estimate', axis=1)
+        
+        # handle growth_estimates
+        is_growth_estimates = filter_data['growth_estimates'].notna()
+        periods = {
+            '0q': 'curr_qtr',
+            '+1q': 'next_qtr',
+            '0y': 'curr_year',
+            '+1y': 'next_year',
+        }
+        for period, period_name in periods.items():
+            filter_data.loc[is_growth_estimates, 'growth_est_%s_stock_trend' % period_name] = filter_data.loc[is_growth_estimates, 'growth_estimates'].apply(lambda x: x.get('0q').get('stockTrend'))
+            filter_data.loc[is_growth_estimates, 'growth_est_%s_sp500_trend' % period_name] = filter_data.loc[is_growth_estimates, 'growth_estimates'].apply(lambda x: x.get('0q').get('indexTrend'))
+            filter_data['growth_est_%s_stock_trend' % period_name] = filter_data['growth_est_%s_stock_trend' % period_name]*100.0
+            filter_data['growth_est_%s_sp500_trend' % period_name] = filter_data['growth_est_%s_sp500_trend' % period_name]*100.0
+        filter_data = filter_data.drop('growth_estimates', axis=1)
+
         # handle chart data
         print('get data: chart')
         charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
