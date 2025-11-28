@@ -4,6 +4,7 @@ import logging, time
 from pprint import pp
 from datetime import datetime
 import pandas as pd
+import numpy as np
 from ....utils import FTime
 
 class YahooF_Info(YahooF):
@@ -27,7 +28,10 @@ class YahooF_Info(YahooF):
 
         procs = {
             'info': self.proc_info,
+            # 'growth_estimates': self.proc_growth_estimates,
+            # 'earnings_estimate': self.proc_earnings_estimate,
         }
+        symbols_equity = []
         self.multi_exec(procs, symbols)
 
         self.logger.info('update done')
@@ -52,8 +56,45 @@ class YahooF_Info(YahooF):
             break
         return data
 
+    # def proc_growth_estimates(self,ticker):
+    #     data = None
+    #     while True:
+    #         try:
+    #             growth_estimates = ticker.growth_estimates
+    #             if not isinstance(growth_estimates, type(None)) and len(growth_estimates) > 0:
+    #                 data = growth_estimates
+    #         except Exception as e:
+    #             if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
+    #                 self.logger.info('Rate Limeit: wait 60 seconds')
+    #                 time.sleep(60)
+    #                 continue
+    #             else:
+    #                 pass
+    #                 # data[2]['info'] = str(e)
+    #         break
+    #     return data
+
+    # def proc_earnings_estimate(self,ticker):
+    #     data = None
+    #     while True:
+    #         try:
+    #             earnings_estimate = ticker.earnings_estimate
+    #             if not isinstance(earnings_estimate, type(None)) and len(earnings_estimate) > 0:
+    #                 data = earnings_estimate
+    #         except Exception as e:
+    #             if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
+    #                 self.logger.info('Rate Limeit: wait 60 seconds')
+    #                 time.sleep(60)
+    #                 continue
+    #             else:
+    #                 pass
+    #                 # data[2]['info'] = str(e)
+    #         break
+    #     return data
+
     def push_api_data(self, symbol, response_data):
         ftime = FTime()
+
         result_data = response_data['info']
 
         status = pd.DataFrame({'info': 0}, index=[symbol])
@@ -67,6 +108,15 @@ class YahooF_Info(YahooF):
             if 'symbol' in result_data: result_data.pop('symbol')
             result = pd.DataFrame([result_data], index=[symbol])
             result.index.name = 'symbol'
+            # if not isinstance(response_data['growth_estimates'], type(None)):
+            #     estimates = {}
+            #     if not isinstance(response_data['growth_estimates'], type(None)):
+            #         estimates['growthEstimates'] = response_data['growth_estimates'].T.to_dict()
+            #     if not isinstance(response_data['earnings_estimate'], type(None)):
+            #         estimates['earningsEstimate'] = response_data['earnings_estimate'].T.to_dict()
+            #     if len(estimates) > 0:
+            #         estimates = pd.DataFrame([estimates], index=[symbol])
+            #         result = result.merge(estimates, how='left', left_index=True, right_index=True)
             self.db.table_write('info', result)
             status.loc[symbol, 'info'] = int(ftime.now_local.timestamp())
             valid = True
@@ -84,7 +134,7 @@ class YahooF_Info(YahooF):
 
         status_db = self.db.table_read('status_db')
         tabs_string = '  '*tabs
-        info = '%sdatabase: %s\n' % (tabs_string, self.db_name)
+        info = '%sdatabase: %s, forced: %s\n' % (tabs_string, self.db_name, forced)
         info += '%s  table: info:\n' % (tabs_string)
         status = []
         if forced:
