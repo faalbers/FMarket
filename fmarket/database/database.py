@@ -323,3 +323,16 @@ class Database():
         table_info['rows'] = row_count[0]
 
         return table_info
+
+    def table_drop_columns(self, table_name, columns=[]):
+        cursor = self.connection.cursor()
+
+        for column in columns:
+            try:
+                cursor.execute("ALTER TABLE '%s' DROP COLUMN '%s'" % (table_name, column))
+            except:
+                print('table or column does not exist: %s.%s' % (table_name, column))
+        
+        cursor.close()
+            
+        
