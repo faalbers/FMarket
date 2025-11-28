@@ -7,6 +7,7 @@ from idlelib.tooltip import Hovertip
 from .analysis_charts_gui import Analysis_Charts_GUI
 from .analysis_dividends_gui import Analysis_Dividends_GUI
 from .analysis_fundamentals_gui import Analysis_Fundamentals_GUI
+from .analysis_news_gui import Analysis_News_GUI
 
 class Analysis_Selection_GUI(tk.Toplevel):
     def __init__(self, parent, selection_data):
@@ -60,7 +61,9 @@ class Analysis_Selection_GUI(tk.Toplevel):
         Analysis_Fundamentals_GUI(self, symbols)
     
     def news(self):
-        pass
+        symbols = self.frame_data.get_symbols()
+        if len(symbols) == 0: return
+        Analysis_News_GUI(self, symbols)
     
     def go_site(self):
         pass

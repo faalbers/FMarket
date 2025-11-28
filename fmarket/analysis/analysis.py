@@ -37,6 +37,9 @@ class Analysis():
     def get_chart(self):
         return self.tickers.get_chart()
     
+    def get_news(self):
+        return self.tickers.get_news()
+    
     def get_chart_sector(self):
         # https://www.sectorspdrs.com/
         # https://www.spglobal.com/spdji/en/index-finder/

@@ -96,3 +96,17 @@ class Finviz_News(Finviz):
             info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
         
         return status, info
+
+    def get_vault_data(self, data_name, columns, key_values):
+        if data_name == 'news_finviz':
+            if len(columns) > 0:
+                column_names = [x[0] for x in columns]
+                data = self.db.timeseries_read('news', keys=key_values, columns=column_names)
+                for symbol in data:
+                    data[symbol] = data[symbol].rename(columns={x[0]: x[1] for x in columns})
+                # return (data, self.db.timestamp)
+                return data
+            else:
+                data = self.db.timeseries_read('news', keys=key_values)
+                # return (data, self.db.timestamp)
+                return data

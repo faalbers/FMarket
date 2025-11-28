@@ -109,6 +109,24 @@ class Tickers():
     def get_chart(self):
         data = self.vault.get_data('chart', key_values=sorted(self.__symbols.index))['YahooF_Chart:chart']
         return data
+    
+    def get_news(self):
+        data = self.vault.get_data('news', key_values=sorted(self.__symbols.index))
+        news_polygon = data['Polygon_News:news_polygon']
+        news_finviz = data['Finviz_News:news_finviz']
+        symbols = set(news_polygon)
+        symbols.update(news_finviz)
+        data_all = {}
+        for symbol in sorted(symbols):
+            if symbol in news_polygon:
+                symbol_data = news_polygon[symbol]
+                if symbol in news_finviz:
+                    symbol_data = pd.concat([symbol_data, news_finviz[symbol]])
+                    symbol_data.sort_index(inplace=True)
+            elif symbol in news_finviz:
+                symbol_data = news_finviz[symbol]
+            data_all[symbol] = symbol_data
+        return data_all
 
     # def get_fundamental(self):
     #     data = self.vault.get_data('fundamental', key_values=sorted(self.__symbols.index))

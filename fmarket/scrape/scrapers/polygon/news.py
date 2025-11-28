@@ -130,7 +130,7 @@ class Polygon_News(Polygon):
                 df.sort_index(inplace=True)
                 data[symbol] = df
 
-            return (data, self.db.timestamp)
+            return data
 
             # if len(columns) > 0:
             #     column_names = [x[0] for x in columns]

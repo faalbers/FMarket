@@ -63,6 +63,21 @@ class Catalog():
                 ],
             },
         },
+        'news': {
+            Polygon_News: {
+                'news_polygon': [
+                    ['title', 'title'],
+                    ['article_url', 'url'],
+                ],
+            },
+            Finviz_News: {
+                'news_finviz': [
+                    ['Title', 'title'],
+                    ['Link', 'url'],
+                    # ['sentiment_llama', 'sentiment'],
+                ],
+            },
+        },
         'analysis_info': {
             YahooF_Info: {
                 'info': [
