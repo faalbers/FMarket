@@ -146,37 +146,6 @@ class YahooF_Info_Quarterly(YahooF):
         
         return status, info
 
-    def scrape_status_old(self, key_values=[], forced=False, tabs=0):
-        # timestamps
-        ftime = FTime()
-        now_ts = ftime.now_local.timestamp()
-        last_q_one_week_ts = ftime.get_quarter_begin(ftime.now_local)
-        last_q_one_week_ts = ftime.get_offset(last_q_one_week_ts, weeks=1).timestamp()
-
-        status_db = self.db.table_read('status_db')
-        tabs_string = '  '*tabs
-        info = '%sdatabase: %s, forced: %s\n' % (tabs_string, self.db_name, forced)
-        info += '%s  table: info (add quarterly data):\n' % (tabs_string)
-        status = []
-        if forced:
-            # we are forcing all symbols
-            status = key_values
-            info += '%s    update     : %s symbols (forced)\n' % (tabs_string, len(status))
-        else:
-            # do status check
-            if status_db.shape[0] > 0 and 'info_quarterly' in status_db.columns:
-                symbols_skip = status_db['info_quarterly'] == 0 # skip symbols that did not work last time
-                symbols_skip |= (status_db['info_quarterly'] >= last_q_one_week_ts) | (now_ts <= last_q_one_week_ts) # skip if quarter done
-                status = sorted(set(key_values).difference(status_db[symbols_skip].index))
-            else:
-                # we add all key_values to status
-                status = key_values
-                info += '%s    update     : Not scraped before\n' % (tabs_string)
-
-            info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
-        
-        return status, info
-
     def get_vault_data(self, data_name, columns, key_values):
         # get columns rename
         column_rename = {x[0]: x[1] for x in columns}
