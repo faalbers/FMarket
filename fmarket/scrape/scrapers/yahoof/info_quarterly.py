@@ -27,8 +27,8 @@ class YahooF_Info_Quarterly(YahooF):
 
         procs = {
             'earnings_estimate': self.proc_earnings_estimate,
-            'revenue_estimate': self.proc_revenue_estimate,
-            'growth_estimate': self.proc_revenue_estimate,
+            # 'revenue_estimate': self.proc_revenue_estimate,
+            'growth_estimates': self.proc_growth_estimates,
         }
         self.multi_exec(procs, symbols)
 
@@ -52,31 +52,31 @@ class YahooF_Info_Quarterly(YahooF):
             break
         return data
 
-    def proc_revenue_estimate(self,ticker):
-        data = None
-        while True:
-            try:
-                revenue_estimate = ticker.revenue_estimate
-                if not isinstance(revenue_estimate, type(None)) and len(revenue_estimate) > 0:
-                    data = revenue_estimate
-            except Exception as e:
-                if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
-                    self.logger.info('Rate Limeit: wait 60 seconds')
-                    time.sleep(60)
-                    continue
-                else:
-                    pass
-                    # data[2]['info'] = str(e)
-            break
-        return data
+    # def proc_revenue_estimate(self,ticker):
+    #     data = None
+    #     while True:
+    #         try:
+    #             revenue_estimate = ticker.revenue_estimate
+    #             if not isinstance(revenue_estimate, type(None)) and len(revenue_estimate) > 0:
+    #                 data = revenue_estimate
+    #         except Exception as e:
+    #             if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
+    #                 self.logger.info('Rate Limeit: wait 60 seconds')
+    #                 time.sleep(60)
+    #                 continue
+    #             else:
+    #                 pass
+    #                 # data[2]['info'] = str(e)
+    #         break
+    #     return data
 
-    def proc_growth_estimate(self,ticker):
+    def proc_growth_estimates(self,ticker):
         data = None
         while True:
             try:
-                growth_estimate = ticker.growth_estimate
-                if not isinstance(growth_estimate, type(None)) and len(growth_estimate) > 0:
-                    data = growth_estimate
+                growth_estimates = ticker.growth_estimates
+                if not isinstance(growth_estimates, type(None)) and len(growth_estimates) > 0:
+                    data = growth_estimates
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -95,10 +95,10 @@ class YahooF_Info_Quarterly(YahooF):
         info = {}
         if not isinstance(response_data['earnings_estimate'], type(None)):
             info['earningsEstimate'] = response_data['earnings_estimate'].T.to_dict()
-        if not isinstance(response_data['revenue_estimate'], type(None)):
-            info['revenueEstimate'] = response_data['revenue_estimate'].T.to_dict()
-        if not isinstance(response_data['growth_estimate'], type(None)):
-            info['growthEstimate'] = response_data['growth_estimate'].T.to_dict()
+        # if not isinstance(response_data['revenue_estimate'], type(None)):
+        #     info['revenueEstimate'] = response_data['revenue_estimate'].T.to_dict()
+        if not isinstance(response_data['growth_estimates'], type(None)):
+            info['growthEstimates'] = response_data['growth_estimates'].T.to_dict()
 
         status = pd.DataFrame({'info_quarterly': 0}, index=[symbol])
         status.index.name = 'symbol'
@@ -118,6 +118,35 @@ class YahooF_Info_Quarterly(YahooF):
         return valid
 
     def scrape_status(self, key_values=[], forced=False, tabs=0):
+        # timestamps
+        ftime = FTime()
+        five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
+
+        status_db = self.db.table_read('status_db')
+        tabs_string = '  '*tabs
+        info = '%sdatabase: %s, forced: %s\n' % (tabs_string, self.db_name, forced)
+        info += '%s  table: info (add quarterly data):\n' % (tabs_string)
+        status = []
+        if forced:
+            # we are forcing all symbols
+            status = key_values
+            info += '%s    update     : %s symbols (forced)\n' % (tabs_string, len(status))
+        else:
+            # do status check
+            if status_db.shape[0] > 0 and 'info_quarterly' in status_db.columns:
+                symbols_skip = status_db['info_quarterly'] == 0 # skip symbols that did not work last time
+                symbols_skip |= status_db['info_quarterly'] >= five_days_ts # skip symbols that were done within the last 5 days
+                status = sorted(set(key_values).difference(status_db[symbols_skip].index))
+            else:
+                # we add all key_values to status
+                status = key_values
+                info += '%s    update     : Not scraped before\n' % (tabs_string)
+
+            info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
+        
+        return status, info
+
+    def scrape_status_old(self, key_values=[], forced=False, tabs=0):
         # timestamps
         ftime = FTime()
         now_ts = ftime.now_local.timestamp()
