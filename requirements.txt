@@ -7,3 +7,5 @@ holidays>=0.81
 finvizfinance>=1.2.0
 rauth>=0.7.3
 ta-lib>=0.6.7
+tkcalendar>=1.6.1
+matplotlib>=3.10.7
