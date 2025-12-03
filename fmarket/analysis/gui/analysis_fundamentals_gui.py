@@ -14,14 +14,14 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
         self.title('Fundamentals Compare')
 
         data_type = [
-            'current ratio',
-            'cash ratio',
+            'total revenue',
             'gross profit margin',
             'operating profit margin',
             'profit margin',
             'net profit margin',
+            'current ratio',
+            'cash ratio',
             'free cash flow',
-            'total revenue',
         ]
         self.data_type = tk.StringVar()
         self.data_type.set(data_type[0])
