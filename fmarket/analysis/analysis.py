@@ -255,6 +255,9 @@ class Analysis():
         fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
         filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
+        # add ttm growth
+        filter_data['total_revenue_ttm_growth'] = ((filter_data['total_revenue_ttm'] / filter_data['total_revenue_yearly'])- 1.0) * 100.0
+
         # clean up filter data
 
         # keep market_cap_name as market_cap
