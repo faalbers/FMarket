@@ -144,14 +144,23 @@ class Analysis():
             '0y': 'curr_year',
             '+1y': 'next_year',
         }
-        for period, period_name in periods.items():
-            filter_data.loc[is_earnings_estimate, 'eps_est_%s_avg' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('avg'))
-            filter_data.loc[is_earnings_estimate, 'eps_est_%s_low' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('low'))
-            filter_data.loc[is_earnings_estimate, 'eps_est_%s_high' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('high'))
-            filter_data.loc[is_earnings_estimate, 'eps_est_%s_growth' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('growth'))
-            filter_data['eps_est_%s_growth' % period_name] = filter_data['eps_est_%s_growth' % period_name]*100.0
-            filter_data.loc[is_earnings_estimate, 'eps_est_%s_analysts' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('numberOfAnalysts'))
-            filter_data.loc[is_earnings_estimate, 'eps_%s_year_ago' % period_name] = filter_data.loc[is_earnings_estimate, 'earnings_estimate'].apply(lambda x: x.get('0q').get('yearAgoEps'))
+        params = {
+            'avg': 'avg',
+            'low': 'low',
+            'high': 'high',
+            'growth': 'growth',
+            'numberOfAnalysts': 'analysts',
+            'yearAgoEps': 'year_ago',
+        }
+        for symbol, ee in filter_data['earnings_estimate'][is_earnings_estimate].items():
+            for period, period_name in periods.items():
+                if not period in ee: continue
+                for param, param_name in params.items():
+                    if param in ee[period]:
+                        if param == 'growth':
+                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param] * 100
+                        else:
+                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
         filter_data = filter_data.drop('earnings_estimate', axis=1)
         
         # handle growth_estimates
@@ -162,11 +171,13 @@ class Analysis():
             '0y': 'curr_year',
             '+1y': 'next_year',
         }
-        for period, period_name in periods.items():
-            filter_data.loc[is_growth_estimates, 'growth_est_%s_stock_trend' % period_name] = filter_data.loc[is_growth_estimates, 'growth_estimates'].apply(lambda x: x.get('0q').get('stockTrend'))
-            filter_data.loc[is_growth_estimates, 'growth_est_%s_sp500_trend' % period_name] = filter_data.loc[is_growth_estimates, 'growth_estimates'].apply(lambda x: x.get('0q').get('indexTrend'))
-            filter_data['growth_est_%s_stock_trend' % period_name] = filter_data['growth_est_%s_stock_trend' % period_name]*100.0
-            filter_data['growth_est_%s_sp500_trend' % period_name] = filter_data['growth_est_%s_sp500_trend' % period_name]*100.0
+        for symbol, ee in filter_data['growth_estimates'][is_growth_estimates].items():
+            for period, period_name in periods.items():
+                if not period in ee: continue
+                if 'stockTrend' in ee[period]:
+                    filter_data.loc[symbol, 'growth_est_%s_stock_trend' % period_name] = ee[period]['stockTrend'] * 100
+                if 'indexTrend' in ee[period]:
+                    filter_data.loc[symbol, 'growth_est_%s_sp500_trend' % period_name] = ee[period]['indexTrend'] * 100
         filter_data = filter_data.drop('growth_estimates', axis=1)
 
         # handle chart data
