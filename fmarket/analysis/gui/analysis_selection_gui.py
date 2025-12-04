@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
+import json
 import numpy as np
 from ..analysis_params import Analysis_Params
 from idlelib.tooltip import Hovertip
@@ -21,20 +22,30 @@ class Analysis_Selection_GUI(tk.Toplevel):
 
         self.title('Market Analysis Selection: %s symbols' % self.data.shape[0])
 
+        # top action buttons frame
+        frame_top_actions = tk.Frame(self)
+        frame_top_actions.pack(padx=10,pady=10, fill='x')
+
+        # add top actions
+        tk.Button(frame_top_actions, text='Save Param Selection', command=self.save_param_selection).pack(side='left')
+        tk.Button(frame_top_actions, text='Load Param Selection', command=self.load_param_selection).pack(side='left')
+        tk.Button(frame_top_actions, text='Save Symbols Selection', command=self.save_symbols_selection).pack(side='left')
+        tk.Button(frame_top_actions, text='Load Symbols Selection', command=self.load_symbols_selection).pack(side='left')
+
         # add data view
         self.frame_data = Frame_Data_Tree(self, self.data)
         self.frame_data.pack(padx=10,pady=10, fill=tk.BOTH, expand=True)
 
-        # action buttons frame
-        frame_actions = tk.Frame(self)
-        frame_actions.pack(padx=10,pady=10, fill=tk.BOTH, expand=True)
+        # bottom action buttons frame
+        frame_bottom_actions = tk.Frame(self)
+        frame_bottom_actions.pack(side='bottom', padx=10,pady=10, fill='x')
 
-        # add actions
-        tk.Button(frame_actions, text='Charts', command=self.charts).pack(side='left')
-        tk.Button(frame_actions, text='Dividends', command=self.dividends).pack(side='left')
-        tk.Button(frame_actions, text='Fundamentals', command=self.fundamentals).pack(side='left')
-        tk.Button(frame_actions, text='News', command=self.news).pack(side='left')
-        tk.Button(frame_actions, text='Go', command=self.go_site).pack(side='right')
+        # add bottom actions
+        tk.Button(frame_bottom_actions, text='Charts', command=self.charts).pack(side='left')
+        tk.Button(frame_bottom_actions, text='Dividends', command=self.dividends).pack(side='left')
+        tk.Button(frame_bottom_actions, text='Fundamentals', command=self.fundamentals).pack(side='left')
+        tk.Button(frame_bottom_actions, text='News', command=self.news).pack(side='left')
+        tk.Button(frame_bottom_actions, text='Go', command=self.go_site).pack(side='right')
         http_links = [
             'Yahoo Finance Chart',
             'Yahoo Finance Compare',
@@ -43,7 +54,31 @@ class Analysis_Selection_GUI(tk.Toplevel):
         ]
         self.http_link = tk.StringVar()
         self.http_link.set(http_links[0])
-        tk.OptionMenu(frame_actions, self.http_link, *http_links).pack(side='right')
+        tk.OptionMenu(frame_bottom_actions, self.http_link, *http_links).pack(side='right')
+
+    def save_param_selection(self):
+        params = self.frame_data.get_params()
+        if len(params) == 0:
+            messagebox.showinfo('Save Params', 'No params to save')
+        else:
+            file = filedialog.asksaveasfile(initialdir='settings/selections', filetypes=[('SELECTION', '*.sel')], defaultextension='.sel', mode='w')
+            if file != None:
+                json.dump(params, file)
+                file.close()
+
+    def load_param_selection(self):
+        file = filedialog.askopenfile(initialdir='settings/selections', filetypes=[('SELECTION', '*.sel')], defaultextension='.sel', mode='r')
+        if file != None:
+            params = file.read()
+            file.close()
+            params = json.loads(params)
+            self.frame_data.set_params(params)
+
+    def save_symbols_selection(self):
+        pass
+
+    def load_symbols_selection(self):
+        pass
 
     def charts(self):
         symbols = self.frame_data.get_symbols()
@@ -89,6 +124,12 @@ class Frame_Data_Tree(tk.Frame):
     def get_symbols(self):
         return self.frame_tree.get_symbols()
 
+    def get_params(self):
+        return self.frame_scroll_columns.get_params()
+
+    def set_params(self, params):
+        return self.frame_scroll_columns.set_params(params)
+
 class Frame_Scroll_Columns(ttk.Frame):
     def __init__(self, parent, columns):
         super().__init__(parent)
@@ -128,6 +169,7 @@ class Frame_Scroll_Columns(ttk.Frame):
 
     def check_changed(self, *params):
         columns = [column for column, column_state in self.columns_state.items() if column_state.get() == 1]
+        print('it changed')
         self.parent.columns_changed(columns)
 
     def check_released(self, event):
@@ -143,6 +185,18 @@ class Frame_Scroll_Columns(ttk.Frame):
         if self.canvas.winfo_height() <= self.frame_checkboxes.winfo_height():
             self.canvas.yview(*params)
 
+    def get_params(self):
+        columns = [column for column, column_state in self.columns_state.items() if column_state.get() == 1]
+        return columns
+
+    def set_params(self, params):
+        for column, column_state in self.columns_state.items():
+            if column in params:
+                column_state.set(1)
+            else:
+                column_state.set(0)
+        self.check_changed()
+    
 class Frame_Tree(tk.Frame):
     def __init__(self, parent, data, columns):
         super().__init__(parent)
