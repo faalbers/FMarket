@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from ..analysis import Analysis
 from .analysis_selection_gui import Analysis_Selection_GUI
-import pickle
+import json
 import pandas as pd
 
 class Analysis_GUI(tk.Tk):
@@ -40,16 +40,19 @@ class Analysis_GUI(tk.Tk):
         if len(filters) == 0:
             messagebox.showinfo('Save Filters', 'No filters to save')
         else:
-            file = filedialog.asksaveasfile(filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='wb')
+            file = filedialog.asksaveasfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='w')
             if file != None:
-                pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
+                json.dump(filters, file)
+                # pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
                 file.close()
     
     def load_filters(self):
-        file = filedialog.askopenfile(filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='rb')
+        file = filedialog.askopenfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='rb')
         if file != None:
-            filters = pickle.load(file)
+            # filters = pickle.load(file)
+            filters = file.read()
             file.close()
+            filters = json.loads(filters)
             self.reset_frame_filters()
             self.frame_filters.set_filters(filters)
 
