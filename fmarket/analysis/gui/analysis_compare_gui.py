@@ -8,7 +8,7 @@ class Analysis_Compare_GUI(tk.Toplevel):
         self.geometry("1200x800")
 
         self.frame_top_options = tk.Frame(self)
-        self.frame_top_options.pack(fill='x')
+        self.frame_top_options.pack(padx=10,pady=10, fill='x')
 
         frame_symbols_data = Frame_Symbols_Data(self, symbols, single)
         frame_symbols_data.pack(expand=True, fill='both')
@@ -16,7 +16,7 @@ class Analysis_Compare_GUI(tk.Toplevel):
         self.frame_data = frame_symbols_data.frame_data
         
         self.frame_bottom_options = tk.Frame(self)
-        self.frame_bottom_options.pack(side='bottom', fill='x')
+        self.frame_bottom_options.pack(side='bottom', padx=10,pady=10, fill='x')
 
 class Frame_Symbols_Data(ttk.Frame):
     def __init__(self, parent, symbols, single):
