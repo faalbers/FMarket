@@ -169,7 +169,6 @@ class Frame_Scroll_Columns(ttk.Frame):
 
     def check_changed(self, *params):
         columns = [column for column, column_state in self.columns_state.items() if column_state.get() == 1]
-        print('it changed')
         self.parent.columns_changed(columns)
 
     def check_released(self, event):
