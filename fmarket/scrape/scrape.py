@@ -41,7 +41,7 @@ class Scrape():
 
         # add symbols
         if self.settings['symbols']:
-            scrapers.append([FMP_Stocklist, [], forced])
+            # scrapers.append([FMP_Stocklist, [], forced])
             scrapers.append([Polygon_Tickers, [], forced])
 
         # add S&P500index info
