@@ -110,7 +110,7 @@ class Frame_Data_Tree(tk.Frame):
         self.parent = parent
         self.data = data
 
-        columns = ['symbol','name']
+        columns = ['symbol', 'name', 'sector', 'industry']
         scroll_columns = {c: (c in columns) for c in self.data.columns}
         self.frame_scroll_columns = Frame_Scroll_Columns(self, scroll_columns)
         self.frame_scroll_columns.pack(side='left', fill=tk.BOTH)
