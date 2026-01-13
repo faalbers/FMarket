@@ -241,7 +241,7 @@ class Analysis():
 
         # get dividend coverage ratio
         if not dividends['dividend_yields']['ttm'].empty:
-            dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividend_yields']['ttm'].T[0]
+            dividend_coverage_ratio = fundamentals['ttm']['eps'] / dividends['dividends']['ttm'].T[0]
             dividend_coverage_ratio.name = 'dividend_coverage_ratio'
             filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
 
@@ -256,7 +256,8 @@ class Analysis():
         filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
         # add ttm growth
-        filter_data['total_revenue_ttm_growth'] = ((filter_data['total_revenue_ttm'] / filter_data['total_revenue_yearly'])- 1.0) * 100.0
+        if 'total_revenue_yearly' in filter_data.columns:
+            filter_data['total_revenue_ttm_growth'] = ((filter_data['total_revenue_ttm'] / filter_data['total_revenue_yearly'])- 1.0) * 100.0
 
         # clean up filter data
 

@@ -156,7 +156,7 @@ class Frame_Scroll_Columns(ttk.Frame):
             height_check += check_button.winfo_reqheight()
 
             # add info hover tip
-            param_info_message = self.analysis_params.get_info_message(column)
+            param_info_message = self.analysis_params.get_param_info_message(column)
             if param_info_message != '':
                 Hovertip(check_button, param_info_message)
 
