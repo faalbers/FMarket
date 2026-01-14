@@ -271,6 +271,31 @@ It's also called valuation multiples, or how many years of earnings needed to ge
 Compare with others in same industry and sector (peers).""",
             'values': [],
         },
+        'pb': {
+            'info':
+"""The Price-to-Book (P/B) ratio compares a company's market value to its book value (assets minus liabilities),
+showing if a stock is trading above or below its net asset value, helping value investors find potentially
+undervalued stocks (low P/B) or identify overvalued ones""",
+            'unit': 'multiple',
+            'formula': 'market_price / book_value_per_share',
+            'guidance':
+"""Especially useful for asset-heavy industries like banking but less for tech with intangible assets,
+with a ratio below 1 often signaling undervaluation.
+    P/B < 1: The market values the company less than its net assets; potentially undervalued.
+    P/B > 1: The market values the company more than its net assets, reflecting future growth potential or brand strength (like Coca-Cola)""",
+            'values': [],
+        },
+        'ps': {
+            'info':
+"""The PS Ratio (Price-to-Sales Ratio) is a valuation metric comparing a company's market value to its total revenue,
+showing how much investors pay for each dollar of sales.""",
+            'unit': 'multiple',
+            'formula': 'market_price / total_revenue_per_share',
+            'guidance':
+"""Especially particularly useful for valuing growth companies or those without profits,
+though it must be compared within the same industry (peers).""",
+            'values': [],
+        },
         'dividend_coverage_ratio': {
             'info':
 """The Dividend Coverage Ratio (DCR) shows how many times a company can pay its current common dividends using its earnings.
@@ -318,11 +343,11 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
                 elif 'end_year' in info['suffix']:
                     info['periodic'] = f"This is the ending year of a {period} trend of base parameter {info['base_name']}."
                 elif 'peers_industry' in info['suffix']:
-                    info['periodic'] = f"This is the last period's median {period} of it's industry peers of base parameter {info['base_name']} in %."
+                    info['periodic'] = f"This is the last period's median {period} of it's industry peers of base parameter {info['base_name']}"
                 elif 'peers_sector' in info['suffix']:
-                    info['periodic'] = f"This is the last period's median {period} of it's sector peers of base parameter {info['base_name']} in %."
+                    info['periodic'] = f"This is the last period's median {period} of it's sector peers of base parameter {info['base_name']}"
                 else:
-                    info['periodic'] = f"This is the last period's {period} value of base parameter {info['base_name']} in %."
+                    info['periodic'] = f"This is the last period's {period} value of base parameter {info['base_name']}"
                 if 'periodic' in info:
                     info['periodic'] += '\n\nBase parameter info:'
                 break
@@ -331,6 +356,12 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
             info['deviation'] = 'This is the deviation percentage between historic and ttm data.'
             info['deviation'] += '\n\nBase parameter info:'
         
+        if not 'periodic' in info:
+            if 'peers_industry' in info['suffix']:
+                info['peers'] = 'This is the median value of its industry peers.'
+            elif 'peers_sector' in info['suffix']:
+                info['peers'] = 'This is the median value of its sector peers.'
+
         return info
     
     def get_param_info_message(self, param):
@@ -346,6 +377,10 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
         # type explanation
         if 'periodic' in param_info:
             message += 'periodic: ' + param_info['periodic']
+            message += '\n\n'
+        
+        if 'peers' in param_info:
+            message += 'peers: ' + param_info['peers']
             message += '\n\n'
         
         if 'deviation' in param_info:

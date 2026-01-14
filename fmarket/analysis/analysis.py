@@ -300,6 +300,7 @@ class Analysis():
             'gross_profit_margin_ttm',
             'operating_profit_margin_ttm',
             'net_profit_margin_yearly',
+            'ps_yearly',
         ]
         peers_types = [
             'sector',
