@@ -301,7 +301,8 @@ class Analysis():
             'operating_profit_margin_ttm',
             'net_profit_margin_yearly',
             'ps_yearly',
-        ]
+            'return_on_assets_yearly',
+            'return_on_equity_yearly',]
         peers_types = [
             'sector',
             'industry',

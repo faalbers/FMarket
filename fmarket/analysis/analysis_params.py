@@ -89,6 +89,14 @@ performing and identify risks and opportunities.""",
             'guidance': None,
             'values': [],
         },
+        'history_years': {
+            'info':
+"""Amount of evailable price chart years in data.""",
+            'unit': 'years',
+            'formula': None,
+            'guidance': None,
+            'values': [],
+        },
         'fund_category': {
             'info':
 """A fund category in mutual funds is a way to classify funds based on their investment strategy, types of assets held,
@@ -229,6 +237,40 @@ into the business.""",
             'guidance': None,
             'values': [],
         },
+        'return_on_assets': {
+            'info':
+"""Return on Assets (ROA) in stocks measures how efficiently a company uses its total assets (like cash, equipment, buildings)
+to generate profit""",
+            'unit': '$ value per $ equity',
+            'formula': 'net_income / total_assets',
+            'guidance':
+"""A higher ROA percentage shows better management in turning assets into earnings, indicating strong operational efficiency,
+while a low ROA suggests assets aren't being used effectively to create profits, helping investors gauge profitability
+and asset utilization. It's best used to compare companies within the same industry, as asset needs vary significantly (peers).""",
+            'values': [],
+        },
+        'return_on_equity': {
+            'info':
+"""Return on Equity (ROE) in stocks is a key profitability metric showing how much profit a company generates for each dollar
+of shareholder money""",
+            'unit': '$ value per $ equity',
+            'formula': 'net_income / stockholders_equity',
+            'guidance':
+"""A higher ROE generally signals more efficient management in turning equity into profits, making it a powerful tool
+for comparing companies in the same industry (peers), though it's best viewed alongside other factors like debt levels and industry averages.""",
+            'values': [],
+        },
+        'eps': {
+            'info':
+"""EPS, or Earnings Per Share, is a key profitability metric showing how much profit a company makes for
+each outstanding share of its stock. It helps investors gauge a company's profitability and value.""",
+            'unit': '$ per share',
+            'formula': 'net_income / outstanding_shares',
+            'guidance':
+"""A higher EPS generally indicating greater profitability, though it should be used with other metrics
+for a complete financial picture. """,
+            'values': [],
+        },
         'pe_forward': {
             'info':
 """The forward P/E ratio, also known as the leading or prospective P/E ratio, is a stock valuation metric that offers a glimpse
@@ -361,6 +403,33 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
                 info['peers'] = 'This is the median value of its industry peers.'
             elif 'peers_sector' in info['suffix']:
                 info['peers'] = 'This is the median value of its sector peers.'
+            elif 'est_' in info['suffix']:
+                info['estimate'] = 'This is an estimate by analysts'
+        
+        if 'estimate' in info:
+            if 'analysts' in info['suffix']:
+                info['estimate'] = 'This is the amount of analysts'
+            
+            if 'curr_qtr' in info['suffix']:
+                info['estimate'] += ' for the current quarter'
+            elif 'next_qtr' in info['suffix']:
+                info['estimate'] += ' for the next quarter'
+            elif 'curr_year' in info['suffix']:
+                info['estimate'] += ' for the current year'
+            elif 'next_year' in info['suffix']:
+                info['estimate'] += ' for the next year'
+            
+            if 'avg' in info['suffix']:
+                info['estimate'] += ' of the average value'
+            elif 'growth' in info['suffix']:
+                info['estimate'] += ' of the growth value'
+            elif 'high' in info['suffix']:
+                info['estimate'] += ' of the high value'
+            elif 'low' in info['suffix']:
+                info['estimate'] += ' of the low value'
+            elif 'year_ago' in info['suffix']:
+                info['estimate'] += ' one year ago of the value'
+
 
         return info
     
@@ -377,6 +446,10 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
         # type explanation
         if 'periodic' in param_info:
             message += 'periodic: ' + param_info['periodic']
+            message += '\n\n'
+        
+        if 'estimate' in param_info:
+            message += 'estimate: ' + param_info['estimate']
             message += '\n\n'
         
         if 'peers' in param_info:
