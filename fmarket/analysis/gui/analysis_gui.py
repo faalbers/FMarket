@@ -42,7 +42,7 @@ class Analysis_GUI(tk.Tk):
         else:
             file = filedialog.asksaveasfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='w')
             if file != None:
-                json.dump(filters, file)
+                json.dump(filters, file, indent=4)
                 # pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
                 file.close()
     

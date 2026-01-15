@@ -63,7 +63,7 @@ class Analysis_Selection_GUI(tk.Toplevel):
         else:
             file = filedialog.asksaveasfile(initialdir='settings/selections', filetypes=[('SELECTION', '*.sel')], defaultextension='.sel', mode='w')
             if file != None:
-                json.dump(params, file)
+                json.dump(params, file, indent=4)
                 file.close()
 
     def load_param_selection(self):
