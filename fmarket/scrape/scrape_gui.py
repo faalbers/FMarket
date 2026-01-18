@@ -86,7 +86,7 @@ class Scrape_GUI(tk.Tk):
                 for column in sorted(columns):
                     params_text += f'\t\t\t{column}\n'
         self.scrape_update_status_text(params_text)
-        with open('database_params.txt', 'w') as file:
+        with open('data/database_params.txt', 'w') as file:
             file.write(params_text)
         
     def scrape_update_status_text(self, status):
