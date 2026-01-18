@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from ..analysis import Analysis
 from .analysis_selection_gui import Analysis_Selection_GUI
+from ...utils import Playbooks
 import json
 import pandas as pd
 
@@ -45,6 +46,7 @@ class Analysis_GUI(tk.Tk):
                 json.dump(filters, file, indent=4)
                 # pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
                 file.close()
+                Playbooks().make()
     
     def load_filters(self):
         file = filedialog.askopenfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='rb')
@@ -196,6 +198,12 @@ class Frame_Filter(tk.Frame):
         filter['and'] = self.filter.get_filter()
         filter['or'] = self.frame_filter_or.get_filters()
         return filter
+
+    def reset_frame_filter_or(self):
+        self.frame_filter_or.destroy()
+
+        self.frame_filter_or = Frame_Filter_OR(self, self.filter_data, [])
+        self.frame_filter_or.grid(row=1, column=0, sticky=tk.W, padx=20)
 
 class Frame_Filter_OR(tk.Frame):
     def __init__(self, parent, filter_data, filters=[]):
