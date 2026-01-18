@@ -155,6 +155,26 @@ and its market cap (what it's currently worth)""",
             'guidance': 'Buy above a certain value. Most select 35%. Lower value is more risk.',
             'values': [],
         },
+        'total_revenue_ttm_growth': {
+            'info':
+"""Growth from last yearly to current ttm of the total income a company generates from all its operations (selling goods/services, fees, etc.) before
+any costs or expenses are deducted""",
+            'unit': 'percentage',
+            'formula': '(total_revenue_ttm / total_revenue_yearly - 1) * 100',
+            'guidance': None,
+            'values': [],
+            'source': 'calculated'
+        },
+        'total_revenue': {
+            'info':
+"""The total income a company generates from all its operations (selling goods/services, fees, etc.) before
+any costs or expenses are deducted""",
+            'unit': '$',
+            'formula': None,
+            'guidance': None,
+            'values': [],
+            'source': 'fundamentals'
+        },
         'current_ratio': {
             'info':
 """Current Ratio is a financial metric used in company statements to assess a company's short-term liquidity,
@@ -237,6 +257,18 @@ into the business.""",
             'guidance': None,
             'values': [],
         },
+        'dividend_coverage_ratio': {
+            'info':
+"""The Dividend Coverage Ratio (DCR) shows how many times a company can pay its current common dividends using its earnings.
+It helps investors gauge dividend safety and future stability.""",
+            'unit': 'multiple',
+            'formula': 'eps / dividend_yields',
+            'guidance':
+"""a higher ratio (e.g., above 2x) suggests strong sustainability, while below 1.5x can signal risk,
+though using actual cash flow (FCFE) offers a more accurate picture than just net income.""",
+            'values': [],
+            'source': 'calculated'
+        },
         'return_on_assets': {
             'info':
 """Return on Assets (ROA) in stocks measures how efficiently a company uses its total assets (like cash, equipment, buildings)
@@ -273,22 +305,24 @@ for a complete financial picture. """,
         },
         'pe_forward': {
             'info':
-"""The forward P/E ratio, also known as the leading or prospective P/E ratio, is a stock valuation metric that offers a glimpse
+"""The forward price-to-earnings P/E ratio, also known as the leading or prospective P/E ratio, is a stock valuation metric that offers a glimpse
 into a company's future earnings potential. The forward P/E ratio estimates how much investors are willing to pay for each dollar
 of a company's projected future earnings. Unlike the trailing P/E ratio, which uses past earnings data, the forward P/E is
 forward-looking and relies on estimates of future earnings, which are typically provided by company management or financial analysts.""",
             'unit': '$ value per $ earnings',
-            'formula': None,
+            'formula': 'market_price / eps',
             'guidance': "Remember, it is soley based on predicted data. Compare with others in same industry and sector (peers).",
+            'guidance':
+"""Remember, it is soley based on predicted data. A lower P/E ratio might suggest a stock is undervalued, while a higher ratio
+could indicate overvaluation. Compare with others in same industry and sector (peers).""",
             'values': [],
+            'source': 'Yahoof info'
         },
-        'peg': {
+        'peg_ttm': {
             'info':
-"""A PEG ratio is a stock valuation metric that divides a company's P/E ratio (the price-to-earnings ratio based actual earnings)
-by a historical earnings growth rate, which could be from the last fiscal year
-or a multi-year average. It indicates if a stock's current price is justified by its past earnings performance and growth. """,
+"""The trailing PEG ratio is a stock valuation metric that divides a company's trailing P/E ratio by the expected growth rate.""",
             'unit': 'around 1.0',
-            'formula': None,
+            'formula': 'pe_ttm / expected_growth_rate',
             'guidance':
 """
 Compare with others in same industry and sector (peers)
@@ -299,19 +333,38 @@ Compare with others in same industry and sector (peers)
     PEG ttm > 1:
         Could indicate the stock is overvalued relative to its historical growth, signaling caution.""",
             'values': [],
+            'source': 'Yahoof info'
+        },
+        'peg_forward': {
+            'info':
+"""The forward PEG ratio is a stock valuation metric that divides a company's forward P/E ratio by the expected growth rate.""",
+            'unit': 'around 1.0',
+            'formula': 'pe_forward / expected_growth_rate',
+            'guidance':
+"""
+Compare with others in same industry and sector (peers)
+    PEG ttm = 1:
+        Suggests the stock is fairly valued, where the market price aligns with historical earnings growth
+    PEG ttm < 1:
+        May indicate the stock is undervalued, offering potential growth at a reasonable price
+    PEG ttm > 1:
+        Could indicate the stock is overvalued relative to its historical growth, signaling caution.""",
+            'values': [],
+            'source': 'Yahoof info'
         },
         'pe': {
             'info':
 """The price-to-earnings (P/E) ratio is a valuation metric that measures a company's current stock price relative
-to its actual earnings per share (EPS). So how much $ you pay for $1 earnings.
+to its actual earnings per share (EPS) in ttm. So how much $ you pay for $1 earnings.
 It's calculated by dividing the current stock price by the company's earnings per share (EPS).
 It's also called valuation multiples, or how many years of earnings needed to get back price.""",
             'unit': '$ value per $ earnings',
-            'formula': None,
+            'formula': 'market_price / eps',
             'guidance':
 """A lower P/E ratio might suggest a stock is undervalued, while a higher ratio could indicate overvaluation.
 Compare with others in same industry and sector (peers).""",
             'values': [],
+            'source': 'calculated'
         },
         'pb': {
             'info':
@@ -336,17 +389,6 @@ showing how much investors pay for each dollar of sales.""",
             'guidance':
 """Especially particularly useful for valuing growth companies or those without profits,
 though it must be compared within the same industry (peers).""",
-            'values': [],
-        },
-        'dividend_coverage_ratio': {
-            'info':
-"""The Dividend Coverage Ratio (DCR) shows how many times a company can pay its current common dividends using its earnings.
-It helps investors gauge dividend safety and future stability.""",
-            'unit': 'multiple',
-            'formula': 'eps / dividend_yields',
-            'guidance':
-"""a higher ratio (e.g., above 2x) suggests strong sustainability, while below 1.5x can signal risk,
-though using actual cash flow (FCFE) offers a more accurate picture than just net income.""",
             'values': [],
         },
     }
@@ -430,7 +472,12 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
             elif 'year_ago' in info['suffix']:
                 info['estimate'] += ' one year ago of the value'
 
-
+        info['source'] = 'unknown'
+        if 'info' in info['suffix']:
+            info['source'] = 'Yahoof info'
+        elif 'source' in self.params[param_found]:
+            info['source'] = self.params[param_found]['source']
+        
         return info
     
     def get_param_info_message(self, param):
@@ -441,7 +488,8 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
 
         # pp(param_info)
         
-        message += '%s\n\n' % param_info['name']
+        # message += 'name: %s ( unit = %s ) ( source = %s )\n\n' % (param_info['name'], param_info['unit'], param_info['source'])
+        message += 'name: %s\n\n' % (param_info['name'])
 
         # type explanation
         if 'periodic' in param_info:
@@ -465,6 +513,8 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
         
         if param_info['unit'] is not None:
             message += ' ( unit = %s )' % param_info['unit']
+        
+        message += ' ( source = %s )' % param_info['source']
         
         message += '\n\n'
         

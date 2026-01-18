@@ -294,6 +294,7 @@ class Analysis():
             'pe_ttm',
             'pe_ttm_info',
             'pe_forward',
+            'peg_forward',
             'peg_ttm',
             'current_ratio_yearly',
             'gross_profit_margin_yearly',
