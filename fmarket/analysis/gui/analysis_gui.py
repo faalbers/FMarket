@@ -75,7 +75,9 @@ class Analysis_GUI(tk.Tk):
         select = pd.Series(True, index=self.filter_data.index)
         columns = set()
         for filter in filters:
-            or_filters = [filter['and']] + filter['or']
+            # only include active filters
+            or_filters = [f for f in ([filter['and']] + filter['or']) if f[4]]
+            if len(or_filters) == 0: continue
             or_select = pd.Series(False, index=self.filter_data.index)
             for or_filter in or_filters:
                 column_a = or_filter[0]
@@ -246,8 +248,12 @@ class Filter(tk.Frame):
         # add filter to parent button
         tk.Button(self, text='+', command=parent.add_filter).grid(row=0, column=1)
 
+        # toggle filter active
+        self.button_active = tk.Button(self, text='✓', width=1, command=self.toggle_filter)
+        self.button_active.grid(row=0, column=2)
+
         # add param option entry
-        self.replace_entry(2, self.params)
+        self.replace_entry(3, self.params)
 
         # add function option menu
         functions = [
@@ -270,32 +276,39 @@ class Filter(tk.Frame):
             self.function_select.set(functions[0])
         function = tk.OptionMenu(self, self.function_select, *functions, command=self.function_changed)
         function.config(width=7)
-        function.grid(row=0, column=3)
+        function.grid(row=0, column=4)
 
         self.entry_option = tk.IntVar()
         if len(self.filter) > 3 and self.filter[3]:
                 self.entry_option.set(1)
-        tk.Checkbutton(self, variable=self.entry_option, command=self.entry_option_changed).grid(row=0, column=4)
+        tk.Checkbutton(self, variable=self.entry_option, command=self.entry_option_changed).grid(row=0, column=5)
 
         # automatically update second entry by saying the first one changed
-        self.entry_changed(None, 2)
+        self.entry_changed(None, 3)
 
+    def toggle_filter(self):
+        button_text = self.button_active.cget('text')
+        if button_text == '✓':
+            self.button_active.config(text=' ')
+        else:
+            self.button_active.config(text='✓')
+    
     def entry_changed(self, event, column):
         if isinstance(event, tk.Event):
             value = event.widget.get()
         else:
             value = self.grid_slaves(row=0, column=column)[0].get()
 
-        if column == 2:
+        if column == 3:
             # get settings of current filter
             function = self.function_select.get()
 
             if function in ['isna', 'notna']:
                 self.entry_option.set(0)
-                self.replace_entry(5, None)
+                self.replace_entry(6, None)
             elif function in ['contains', 'startswith', 'endswith']:
                 self.entry_option.set(0)
-                self.replace_entry(5, [])
+                self.replace_entry(6, [])
             elif self.entry_option.get() == 0:
                 # find possible values for parameter
                 if value == self.filter_data.index.name:
@@ -305,11 +318,11 @@ class Filter(tk.Frame):
                 
                 # too many for selection or not string values, use entry
                 if len(values) > 200 or not isinstance(values[0], str):
-                    self.replace_entry(5, [])
+                    self.replace_entry(6, [])
                 else:
-                    self.replace_entry(5, values)
+                    self.replace_entry(6, values)
             else:
-                self.replace_entry(5, self.params)
+                self.replace_entry(6, self.params)
     
     def replace_entry(self, column, values):
         old_widget = self.grid_slaves(row=0, column=column)
@@ -320,9 +333,9 @@ class Filter(tk.Frame):
 
         value = ''
         if len(self.filter) > 0:
-            if column == 2:
+            if column == 3:
                 value = self.filter[0]
-            elif column == 5:
+            elif column == 6:
                 value = self.filter[2]
 
         if len(values) > 0:
@@ -338,19 +351,20 @@ class Filter(tk.Frame):
             entry.grid(row=0, column=column)
 
     def entry_option_changed(self):
-        self.entry_changed(None, 2)
+        self.entry_changed(None, 3)
     
     def function_changed(self, function):
-        self.entry_changed(None, 2)
+        self.entry_changed(None, 3)
 
     def get_filter(self):
-        column = self.grid_slaves(row=0, column=2)[0].get()
+        column = self.grid_slaves(row=0, column=3)[0].get()
         function = self.function_select.get()
-        value = self.grid_slaves(row=0, column=5)
+        value = self.grid_slaves(row=0, column=6)
         if len(value) == 0:
             value = None
         else:
             value = value[0].get()
         value_is_column = self.entry_option.get() == 1
-        return (column, function, value, value_is_column)
+        filter_active = self.button_active.cget('text') == '✓'
+        return (column, function, value, value_is_column, filter_active)
     
