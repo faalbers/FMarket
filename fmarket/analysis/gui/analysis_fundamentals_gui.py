@@ -55,7 +55,7 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
         for parameter, data in self.fundamentals['yearly'].items():
             if parameter in fundamentals_ttm.index:
                 param_ttm = fundamentals_ttm.loc[parameter].dropna()
-                if not param_ttm.empty:
+                if not data.empty and not param_ttm.empty:
                     if not data.empty:
                         data.loc['ttm'] = param_ttm
                     else:
