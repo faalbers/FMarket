@@ -300,7 +300,11 @@ class Analysis():
             'gross_profit_margin_yearly',
             'gross_profit_margin_ttm',
             'operating_profit_margin_ttm',
+            'operating_profit_margin_yearly',
+            'profit_margin_ttm',
+            'profit_margin_yearly',
             'net_profit_margin_yearly',
+            'net_profit_margin_ttm',
             'ps_yearly',
             'return_on_assets_yearly',
             'return_on_equity_yearly',]

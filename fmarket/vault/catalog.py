@@ -105,18 +105,6 @@ class Catalog():
                 ],
             },
         },
-        'analysis_chart': {
-            YahooF_Chart: {
-                'chart': [
-                    ['Adj Close', 'adj_close'],
-                    ['Close', 'close'],
-                    ['Low', 'low'],
-                    ['High', 'high'],
-                    ['Dividends', 'dividends'],
-                    # ['Stock Splits', 'stock_splits'],
-                ],
-            },
-        },
         'analysis_fundamental': {
             YahooF_Fundamental_Quarterly: {
                 'ttm': [

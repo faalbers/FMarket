@@ -193,7 +193,7 @@ This metric assesses if a company can meet its immediate debts using only cash a
 If it's too high it does not take up enough liabilities for growth and is too conservative""",
             'unit': '%',
             'formula': 'cash_and_cash_equivalents / current_liabilities',
-            'guidance': 'Should be between 50 and 100. Lower cant cover short term debt and higher is too conservative',
+            'guidance': 'Should be between 50 and 100. Lower cant cover short term debt and higher is too conservative (no growth).',
             'values': [],
         },
         'gross_profit_margin': {
@@ -273,7 +273,7 @@ though using actual cash flow (FCFE) offers a more accurate picture than just ne
             'info':
 """Return on Assets (ROA) in stocks measures how efficiently a company uses its total assets (like cash, equipment, buildings)
 to generate profit""",
-            'unit': '$ value per $ equity',
+            'unit': '%',
             'formula': 'net_income / total_assets',
             'guidance':
 """A higher ROA percentage shows better management in turning assets into earnings, indicating strong operational efficiency,
@@ -285,7 +285,7 @@ and asset utilization. It's best used to compare companies within the same indus
             'info':
 """Return on Equity (ROE) in stocks is a key profitability metric showing how much profit a company generates for each dollar
 of shareholder money""",
-            'unit': '$ value per $ equity',
+            'unit': '%',
             'formula': 'net_income / stockholders_equity',
             'guidance':
 """A higher ROE generally signals more efficient management in turning equity into profits, making it a powerful tool
