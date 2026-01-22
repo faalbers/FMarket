@@ -249,9 +249,12 @@ class Filter(tk.Frame):
         tk.Button(self, text='+', command=parent.add_filter).grid(row=0, column=1)
 
         # toggle filter active
-        self.button_active = tk.Button(self, text='✓', width=1, command=self.toggle_filter)
+        if len(self.filter) == 0 or self.filter[4]:
+            self.button_active = tk.Button(self, text='✓', width=1, command=self.toggle_filter)
+        else:
+            self.button_active = tk.Button(self, text=' ', width=1, command=self.toggle_filter)
         self.button_active.grid(row=0, column=2)
-
+        
         # add param option entry
         self.replace_entry(3, self.params)
 
