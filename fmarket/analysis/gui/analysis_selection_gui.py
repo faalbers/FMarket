@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import json
 import numpy as np
+import pandas as pd
 from ..analysis_params import Analysis_Params
 from idlelib.tooltip import Hovertip
 
@@ -61,13 +62,13 @@ class Analysis_Selection_GUI(tk.Toplevel):
         if len(params) == 0:
             messagebox.showinfo('Save Params', 'No params to save')
         else:
-            file = filedialog.asksaveasfile(initialdir='settings/selections', filetypes=[('SELECTION', '*.sel')], defaultextension='.sel', mode='w')
+            file = filedialog.asksaveasfile(initialdir='settings/selections/params', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='w')
             if file != None:
                 json.dump(params, file, indent=4)
                 file.close()
 
     def load_param_selection(self):
-        file = filedialog.askopenfile(initialdir='settings/selections', filetypes=[('SELECTION', '*.sel')], defaultextension='.sel', mode='r')
+        file = filedialog.askopenfile(initialdir='settings/selections/params', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='r')
         if file != None:
             params = file.read()
             file.close()
@@ -75,7 +76,14 @@ class Analysis_Selection_GUI(tk.Toplevel):
             self.frame_data.set_params(params)
 
     def save_symbols_selection(self):
-        pass
+        tree_selection = self.frame_data.get_tree_selection()
+        if len(tree_selection) == 0:
+            messagebox.showinfo('Save Symbols Selection', 'No symbols to save')
+        else:
+            file = filedialog.asksaveasfile(initialdir='settings/selections/symbols', filetypes=[('SELECTION', '*.ssel')], defaultextension='.ssel', mode='w')
+            if file != None:
+                json.dump(tree_selection, file, indent=4)
+                file.close()
 
     def load_symbols_selection(self):
         pass
@@ -123,6 +131,9 @@ class Frame_Data_Tree(tk.Frame):
 
     def get_symbols(self):
         return self.frame_tree.get_symbols()
+
+    def get_tree_selection(self):
+        return self.frame_tree.get_tree_selection()
 
     def get_params(self):
         return self.frame_scroll_columns.get_params()
@@ -296,3 +307,13 @@ class Frame_Tree(tk.Frame):
             data = self.tree.item(selected_item, 'values')
             symbols.append(data[0])
         return symbols
+
+    def get_tree_selection(self):
+        tree_selection = []
+        for selected_item in self.tree.selection():
+            # data = self.tree.item(selected_item, 'values')
+            values = {column:self.tree.set(selected_item, column) for column in self.tree['columns']}
+            tree_selection.append(values)
+        # tree_selection = pd.DataFrame(tree_selection)
+        # tree_selection.set_index('symbol', inplace=True)
+        return tree_selection

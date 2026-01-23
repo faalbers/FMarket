@@ -9,14 +9,19 @@ import pandas as pd
 class Analysis_GUI(tk.Tk):
     def __init__(self, symbols=[], update_cache=False):
         super().__init__()
-        analysis = Analysis(symbols)
-        self.filter_data = analysis.get_filter_data(update_cache=update_cache)
+        self.set_filter_data(symbols, update_cache)
+        # analysis = Analysis(symbols)
+        # self.filter_data = analysis.get_filter_data(update_cache=update_cache)
         if self.filter_data.empty:
             print('No symbols available to analyse')
             return
         self.build_gui()
         self.mainloop()
 
+    def set_filter_data(self, symbols, update_cache=False):
+        analysis = Analysis(symbols)
+        self.filter_data = analysis.get_filter_data(update_cache=update_cache)
+    
     def build_gui(self):
         self.title('Market Analysis: %s symbols' % self.filter_data.shape[0])
         self.minsize(width=700, height=50) 
@@ -25,16 +30,53 @@ class Analysis_GUI(tk.Tk):
         frame_actions = tk.Frame(self)
         frame_actions.pack(anchor='w', fill='x', padx=10, pady=10)
 
+        # filter action buttons frame
+        frame_filter_actions = tk.Frame(self)
+        frame_filter_actions.pack(anchor='w', fill='x', padx=10, pady=10)
+
         # filters frame
         self.frame_filters = Frame_Filters(self, self.filter_data)
         self.frame_filters.pack(anchor='w', padx=10, pady=10)
 
         # add actions
-        self.button_add_filter = tk.Button(frame_actions, text='Add Filter', command=self.frame_filters.add_frame_filter)
-        self.button_add_filter.pack(side='left')
-        tk.Button(frame_actions, text='Save Filters', command=self.save_filters).pack(side='left')
-        tk.Button(frame_actions, text='Load Filters', command=self.load_filters).pack(side='left')
+        tk.Button(frame_actions, text='Load Symbols Selection', command=self.load_symbols_selection).pack(side='left')
         tk.Button(frame_actions, text='Analyze', command=self.analyze).pack(side='right')
+
+        # add filter actions
+        self.button_add_filter = tk.Button(frame_filter_actions, text='Add Filter', command=self.frame_filters.add_frame_filter)
+        self.button_add_filter.pack(side='left')
+        tk.Button(frame_filter_actions, text='Save Filters', command=self.save_filters).pack(side='left')
+        tk.Button(frame_filter_actions, text='Load Filters', command=self.load_filters).pack(side='left')
+        tk.Button(frame_filter_actions, text='Clear Filters', command=self.clear_filters).pack(side='left')
+
+    @staticmethod
+    def recurse_state(root, state):
+        if isinstance(root, tk.Frame):
+            for child in root.winfo_children():
+                Analysis_GUI.recurse_state(child, state)
+        else:
+            print(root, state)
+            root.configure(state=state)
+
+    def disable_window(self):
+        for child in self.winfo_children():
+            Analysis_GUI.recurse_state(child, 'disabled')
+    
+    def enable_window(self):
+        for child in self.winfo_children():
+            Analysis_GUI.recurse_state(child, 'normal')
+        
+    def load_symbols_selection(self):
+        self.disable_window()
+        file = filedialog.askopenfile(initialdir='settings/selections/symbols', filetypes=[('FILTER', '*.ssel')], defaultextension='.ssel', mode='r')
+        if file != None:
+            symbols = file.read()
+            file.close()
+            symbols = json.loads(symbols)
+            symbols = sorted(pd.DataFrame(symbols)['symbol'])
+            self.set_filter_data(symbols)
+            self.title('Market Analysis: %s symbols' % self.filter_data.shape[0])
+        self.enable_window()
 
     def save_filters(self):
         filters = self.frame_filters.get_filters()
@@ -49,14 +91,16 @@ class Analysis_GUI(tk.Tk):
                 Playbooks().make()
     
     def load_filters(self):
-        file = filedialog.askopenfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='rb')
+        file = filedialog.askopenfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='r')
         if file != None:
-            # filters = pickle.load(file)
             filters = file.read()
             file.close()
             filters = json.loads(filters)
             self.reset_frame_filters()
             self.frame_filters.set_filters(filters)
+    
+    def clear_filters(self):
+        self.reset_frame_filters()
 
     def reset_frame_filters(self):
         self.frame_filters.destroy()
