@@ -55,7 +55,6 @@ class Analysis_GUI(tk.Tk):
             for child in root.winfo_children():
                 Analysis_GUI.recurse_state(child, state)
         else:
-            print(root, state)
             root.configure(state=state)
 
     def disable_window(self):
