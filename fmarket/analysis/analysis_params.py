@@ -280,6 +280,7 @@ to generate profit""",
 while a low ROA suggests assets aren't being used effectively to create profits, helping investors gauge profitability
 and asset utilization. It's best used to compare companies within the same industry, as asset needs vary significantly (peers).""",
             'values': [],
+            'source': 'calculated'
         },
         'return_on_equity': {
             'info':
@@ -291,6 +292,7 @@ of shareholder money""",
 """A higher ROE generally signals more efficient management in turning equity into profits, making it a powerful tool
 for comparing companies in the same industry (peers), though it's best viewed alongside other factors like debt levels and industry averages.""",
             'values': [],
+            'source': 'calculated'
         },
         'eps': {
             'info':
@@ -366,6 +368,21 @@ Compare with others in same industry and sector (peers).""",
             'values': [],
             'source': 'calculated'
         },
+        'bvps': {
+            'info':
+"""Book Value Per Share, representing a company's net assets (assets minus liabilities) on a per-share basis,
+indicating what shareholders might receive if the company liquidated its assets and paid its debts;
+it helps value investors find potentially undervalued stocks by comparing it to the current market price.""",
+            'unit': '$',
+            'formula': 'book_value / outstanding_shares',
+            'guidance':
+"""- Valuation Tool: If a stock's BVPS is higher than its market price, it suggests the stock might be undervalued,
+as the market price is less than the underlying asset value per share.
+- Liquidation Value: It provides a theoretical payout to shareholders in a liquidation scenario.
+- Growth Indicator: The growth rate of BVPS shows how quickly a company is building its asset base.""",
+            'values': [],
+            'source': 'calculated'
+        },
         'pb': {
             'info':
 """The Price-to-Book (P/B) ratio compares a company's market value to its book value (assets minus liabilities),
@@ -379,6 +396,7 @@ with a ratio below 1 often signaling undervaluation.
     P/B < 1: The market values the company less than its net assets; potentially undervalued.
     P/B > 1: The market values the company more than its net assets, reflecting future growth potential or brand strength (like Coca-Cola)""",
             'values': [],
+            'source': 'calculated'
         },
         'ps': {
             'info':
