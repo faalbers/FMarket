@@ -26,9 +26,6 @@ class Analysis():
                 self.__cache_filter_data(missing)
                 filter_data = self.db.table_read('analysis', keys=symbols)
         
-        # add additional info data
-        filter_data = self.__add_info_data(filter_data)
-
         # add peers data
         self.__add_peers_data(filter_data)
 
@@ -268,6 +265,9 @@ class Analysis():
         # fix 'infinity' from info
         for column in filter_data.columns[filter_data.apply(lambda x: 'Infinity' in x.values)]:
             filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
+        
+        # add additional info data
+        filter_data = self.__add_info_data(filter_data)
 
         # infer al object columns
         filter_data = filter_data.infer_objects()
@@ -285,16 +285,21 @@ class Analysis():
             info_add.loc[info_add[column] == 'Infinity', column] = np.nan
 
         data = data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
+
+        # prefer pe_ttm_info over pe_ttm
+        fill_pe_ttm_info = (data['pe_ttm_info'].isna() & data['pe_ttm'].notna())
+        data.loc[fill_pe_ttm_info, 'pe_ttm_info'] = data.loc[fill_pe_ttm_info, 'pe_ttm']
+        data = data.drop('pe_ttm', axis=1)
+        data.rename(columns={'pe_ttm_info': 'pe_ttm'}, inplace=True)
+        data.loc[data['pe_ttm'].isna(), 'pe_ttm'] = np.nan
+
         return data
 
     def __add_peers_data(self, filter_data):
         filter_data_all = self.db.table_read('analysis')
-        filter_data_all = self.__add_info_data(filter_data_all)
         peers_params = [
             'pe_ttm',
-            'pe_ttm_info',
             'pe_forward',
-            'peg_forward',
             'peg_ttm',
             'current_ratio_yearly',
             'gross_profit_margin_yearly',
@@ -572,6 +577,7 @@ class Analysis():
             'return on equity': [],
             'return on assets': [],
             'pe': [],
+            'bvps': [],
             'pb': [],
             'ps': [],
             'eps': [],
@@ -636,7 +642,9 @@ class Analysis():
                         if period == 'quarterly': fcf = fcf * 4
                         add_values('price to free cash flow', symbol, market_cap / fcf)
                     if 'book_value' in symbol_period.columns:
-                        add_values('pb', symbol, symbol_period['price']/(symbol_period['book_value']/symbol_period['shares']))
+                        bvps = symbol_period['book_value'] / symbol_period['shares']
+                        add_values('bvps', symbol, bvps)
+                        add_values('pb', symbol, symbol_period['price']/bvps)
                     if 'total_revenue' in symbol_period.columns:
                         add_values('ps', symbol, symbol_period['price']/(symbol_period['total_revenue']/symbol_period['shares']))
                         
