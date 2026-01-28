@@ -265,12 +265,18 @@ class Analysis():
         # fix 'infinity' from info
         for column in filter_data.columns[filter_data.apply(lambda x: 'Infinity' in x.values)]:
             filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
-        
+
+        # calculate peg_ttm since the info one is sparse
+        filter_data['peg_ttm'] = filter_data['pe_ttm'] / filter_data['eps_est_curr_year_growth']
+
         # add additional info data
         filter_data = self.__add_info_data(filter_data)
 
         # infer al object columns
-        filter_data = filter_data.infer_objects()
+        filter_data = filter_data.infer_objects().copy()
+
+        # calculate peg_forward since the info one is unreliable
+        filter_data['peg_forward'] = filter_data['pe_forward'] / filter_data['eps_est_next_year_growth']
 
         # write to db
         self.db.backup()
@@ -286,12 +292,46 @@ class Analysis():
 
         data = data.merge(info_add, how='left', left_index=True, right_index=True, suffixes=('', '_info'))
 
-        # prefer pe_ttm_info over pe_ttm
-        fill_pe_ttm_info = (data['pe_ttm_info'].isna() & data['pe_ttm'].notna())
-        data.loc[fill_pe_ttm_info, 'pe_ttm_info'] = data.loc[fill_pe_ttm_info, 'pe_ttm']
-        data = data.drop('pe_ttm', axis=1)
-        data.rename(columns={'pe_ttm_info': 'pe_ttm'}, inplace=True)
+        data = data.infer_objects().copy()
+
+        # # prefer pe_ttm_info over pe_ttm
+        # fill_pe_ttm_info = (data['pe_ttm_info'].isna() & data['pe_ttm'].notna())
+        # data.loc[fill_pe_ttm_info, 'pe_ttm_info'] = data.loc[fill_pe_ttm_info, 'pe_ttm']
+        # data = data.drop('pe_ttm', axis=1)
+        # data.rename(columns={'pe_ttm_info': 'pe_ttm'}, inplace=True)
+        # data.loc[data['pe_ttm'].isna(), 'pe_ttm'] = np.nan
+
+        # # prefer eps_ttm_info over eps_ttm
+        # fill_eps_ttm_info = (data['eps_ttm_info'].isna() & data['eps_ttm'].notna())
+        # data.loc[fill_eps_ttm_info, 'eps_ttm_info'] = data.loc[fill_eps_ttm_info, 'eps_ttm']
+        # data = data.drop('eps_ttm', axis=1)
+        # data.rename(columns={'eps_ttm_info': 'eps_ttm'}, inplace=True)
+        # data.loc[data['eps_ttm'].isna(), 'eps_ttm'] = np.nan
+
+        # # prefer peg_ttm_info over peg_ttm
+        # fill_peg_ttm_info = (data['peg_ttm_info'].isna() & data['peg_ttm'].notna())
+        # data.loc[fill_peg_ttm_info, 'peg_ttm_info'] = data.loc[fill_peg_ttm_info, 'peg_ttm']
+        # data = data.drop('peg_ttm', axis=1)
+        # data.rename(columns={'peg_ttm_info': 'peg_ttm'}, inplace=True)
+        # data.loc[data['peg_ttm'].isna(), 'peg_ttm'] = np.nan
+
+        # prefer calculated pe_ttm over pe_ttm_info
+        fill_pe_ttm = (data['pe_ttm'].isna() & data['pe_ttm_info'].notna())
+        data.loc[fill_pe_ttm, 'pe_ttm'] = data.loc[fill_pe_ttm, 'pe_ttm_info']
+        data = data.drop('pe_ttm_info', axis=1)
         data.loc[data['pe_ttm'].isna(), 'pe_ttm'] = np.nan
+
+        # prefer calculated eps_ttm over eps_ttm_info
+        fill_eps_ttm = (data['eps_ttm'].isna() & data['eps_ttm_info'].notna())
+        data.loc[fill_eps_ttm, 'eps_ttm'] = data.loc[fill_eps_ttm, 'eps_ttm_info']
+        data = data.drop('eps_ttm_info', axis=1)
+        data.loc[data['eps_ttm'].isna(), 'eps_ttm'] = np.nan
+
+        # prefer calculated peg_ttm over peg_ttm_info
+        fill_peg_ttm = (data['peg_ttm'].isna() & data['peg_ttm_info'].notna())
+        data.loc[fill_peg_ttm, 'peg_ttm'] = data.loc[fill_peg_ttm, 'peg_ttm_info']
+        data = data.drop('peg_ttm_info', axis=1)
+        data.loc[data['peg_ttm'].isna(), 'peg_ttm'] = np.nan
 
         return data
 
@@ -299,8 +339,10 @@ class Analysis():
         filter_data_all = self.db.table_read('analysis')
         peers_params = [
             'pe_ttm',
+            'eps_ttm',
             'pe_forward',
             'peg_ttm',
+            'peg_forward',
             'current_ratio_yearly',
             'gross_profit_margin_yearly',
             'gross_profit_margin_ttm',
@@ -327,10 +369,16 @@ class Analysis():
                     if peers_param_data.empty: continue
                     median_param = '%s_peers_%s' % (peers_param, peers_type)
                     median = peers_param_data.median()
+                    median_count = peers_param_data.count()
                     peers_param_data = peers_param_data[peers_param_data.index.isin(filter_data.index)]
                     if peers_param_data.shape[0] > 0:
                         filter_data.loc[peers_param_data.index, median_param] = median
-    
+                        filter_data.loc[peers_param_data.index, median_param+'_count'] = median_count
+
+        # add calculations with peers data
+        filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
+            * filter_data['eps_est_curr_year_growth'] * filter_data['eps_ttm']
+
     def _get_margins_of_safety(self, fundamentals, charts, info):
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
         if not 'yearly' in fundamentals: return data

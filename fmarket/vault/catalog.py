@@ -58,7 +58,7 @@ class Catalog():
                     ['epsTrailingTwelveMonths', 'eps_ttm'],
                     ['epsForward', 'eps_forward'],
                     
-                    ['pegRatio', 'peg_forward'],
+                    # ['pegRatio', 'peg_forward'],
                     ['trailingPegRatio', 'peg_ttm'],
                 ],
             },

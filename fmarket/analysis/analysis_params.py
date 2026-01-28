@@ -304,6 +304,7 @@ each outstanding share of its stock. It helps investors gauge a company's profit
 """A higher EPS generally indicating greater profitability, though it should be used with other metrics
 for a complete financial picture. """,
             'values': [],
+            'source': 'calculated / eps_ttm some also info'
         },
         'pe_forward': {
             'info':
@@ -341,7 +342,7 @@ Compare with others in same industry and sector (peers)
             'info':
 """The forward PEG ratio is a stock valuation metric that divides a company's forward P/E ratio by the expected growth rate.""",
             'unit': 'around 1.0',
-            'formula': 'pe_forward / expected_growth_rate',
+            'formula': 'pe_forward / expected_next_year_growth_rate',
             'guidance':
 """
 Compare with others in same industry and sector (peers)
@@ -352,7 +353,7 @@ Compare with others in same industry and sector (peers)
     PEG ttm > 1:
         Could indicate the stock is overvalued relative to its historical growth, signaling caution.""",
             'values': [],
-            'source': 'Yahoof info'
+            'source': 'calculated'
         },
         'pe': {
             'info':
