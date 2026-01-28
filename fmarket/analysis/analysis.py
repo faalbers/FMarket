@@ -681,7 +681,7 @@ class Analysis():
             if 'price' in symbol_period.columns:
                 if 'eps' in symbol_period.columns:
                     eps = symbol_period['eps']
-                    if period == 'quarterly': eps = eps * 4
+                    # if period == 'quarterly': eps = eps * 4
                     add_values('pe', symbol, symbol_period['price']/eps)
                 if 'shares' in symbol_period.columns:
                     market_cap = symbol_period['price'] * symbol_period['shares']
