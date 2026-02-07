@@ -14,7 +14,9 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
         self.title('Fundamentals Compare')
 
         data_type = [
+            'eps',
             'total revenue',
+            'net income',
             'gross profit margin',
             'operating profit margin',
             'profit margin',
@@ -51,6 +53,7 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
     def set_fundamentals(self, symbols):
         analysis = Analysis(symbols)
         self.fundamentals = analysis.get_fundamentals()
+        print(self.fundamentals)
         fundamentals_ttm = self.fundamentals['ttm'].T
         for parameter, data in self.fundamentals['yearly'].items():
             if parameter in fundamentals_ttm.index:

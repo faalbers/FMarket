@@ -410,6 +410,16 @@ showing how much investors pay for each dollar of sales.""",
 though it must be compared within the same industry (peers).""",
             'values': [],
         },
+        'growth': {
+            'info':
+"""Earnings growth.""",
+            'unit': '%',
+            'formula': None,
+            'guidance':
+"""This is estimated from analysts.""",
+            'values': [],
+            'source': 'info'
+        },
     }
 
     def get_param_info(self, param):

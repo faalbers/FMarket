@@ -267,7 +267,8 @@ class Analysis():
             filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
 
         # calculate peg_ttm since the info one is sparse
-        filter_data['peg_ttm'] = filter_data['pe_ttm'] / filter_data['eps_est_curr_year_growth']
+        # filter_data['peg_ttm'] = filter_data['pe_ttm'] / filter_data['eps_est_curr_year_growth']
+        filter_data['peg_ttm'] = filter_data['pe_ttm'] / filter_data['growth_est_curr_year_stock_trend']
 
         # add additional info data
         filter_data = self.__add_info_data(filter_data)
@@ -276,7 +277,8 @@ class Analysis():
         filter_data = filter_data.infer_objects().copy()
 
         # calculate peg_forward since the info one is unreliable
-        filter_data['peg_forward'] = filter_data['pe_forward'] / filter_data['eps_est_next_year_growth']
+        # filter_data['peg_forward'] = filter_data['pe_forward'] / filter_data['eps_est_next_year_growth']
+        filter_data['peg_forward'] = filter_data['pe_forward'] / filter_data['growth_est_next_year_stock_trend']
 
         # write to db
         self.db.backup()
@@ -354,7 +356,10 @@ class Analysis():
             'net_profit_margin_ttm',
             'ps_yearly',
             'return_on_assets_yearly',
-            'return_on_equity_yearly',]
+            'return_on_equity_yearly',
+            'growth_est_curr_year_stock_trend',
+            'growth_est_next_year_stock_trend',
+        ]
         peers_types = [
             'sector',
             'industry',
@@ -377,7 +382,7 @@ class Analysis():
 
         # add calculations with peers data
         filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
-            * filter_data['eps_est_curr_year_growth'] * filter_data['eps_ttm']
+            * filter_data['growth_est_curr_year_stock_trend'] * filter_data['eps_est_next_year_avg']
 
     def _get_margins_of_safety(self, fundamentals, charts, info):
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
@@ -632,6 +637,7 @@ class Analysis():
             'free cash flow': [],
             'price to free cash flow': [],
             'total revenue': [],
+            'net income': [],
         }
 
         # go through each symbol's dataframe
@@ -672,6 +678,7 @@ class Analysis():
                 if 'net_income' in symbol_period.columns:
                     add_values('net profit margin', symbol, (symbol_period['net_income'] / symbol_period['total_revenue']) * 100)
             if 'net_income' in symbol_period.columns:
+                add_values('net income', symbol, symbol_period['net_income'])
                 if 'stockholders_equity' in symbol_period.columns:
                     add_values('return on equity', symbol, (symbol_period['net_income'] / symbol_period['stockholders_equity']) * 100)
                 if 'total_assets' in symbol_period.columns:
