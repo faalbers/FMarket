@@ -123,7 +123,7 @@ class Polygon_Tickers(Polygon):
             if status_db.shape[0] > 0:
                 last_ts = status_db.loc['tickers', 'timestamp']
                 last_time = ftime.get_from_ts_local(last_ts)
-                next_time = ftime.get_offset(last_time, months=6)
+                next_time = ftime.get_offset(last_time, months=1)
                 status = now >= next_time
                 info += '%s    last update: %s\n' % (tabs_string, last_time)
                 info += '%s    next update: %s\n' % (tabs_string, next_time)
