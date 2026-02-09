@@ -151,6 +151,7 @@ class Frame_Scroll_Columns(ttk.Frame):
         self.canvas.pack(side='left', fill='both')
 
         self.frame_checkboxes = tk.Frame(self)
+        self.frame_checkboxes.bind("<MouseWheel>", self.canvas_scroll_update)
         self.canvas.create_window((0,0), window=self.frame_checkboxes, anchor='nw')
 
         widest_check = 0
@@ -162,6 +163,7 @@ class Frame_Scroll_Columns(ttk.Frame):
             check_button = tk.Checkbutton(self.frame_checkboxes, text=column,
                 variable=self.columns_state[column], command=self.check_changed)
             check_button.bind('<ButtonRelease-1>', self.check_released)
+            check_button.bind("<MouseWheel>", self.canvas_scroll_update)
             check_button.pack(anchor='w')
             if check_button.winfo_reqwidth() > widest_check: widest_check = check_button.winfo_reqwidth()
             height_check += check_button.winfo_reqheight()
@@ -195,6 +197,12 @@ class Frame_Scroll_Columns(ttk.Frame):
         if self.canvas.winfo_height() <= self.frame_checkboxes.winfo_height():
             self.canvas.yview(*params)
 
+    def canvas_scroll_update(self, event):
+        if event.delta > 0:
+            self.canvas.yview_scroll(-4, "units")
+        else:
+            self.canvas.yview_scroll(4, "units")
+    
     def get_params(self):
         columns = [column for column, column_state in self.columns_state.items() if column_state.get() == 1]
         return columns
