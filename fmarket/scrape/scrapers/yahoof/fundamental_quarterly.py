@@ -43,6 +43,11 @@ class YahooF_Fundamental_Quarterly(YahooF):
                 income_stmt_quarterly = ticker.get_income_stmt(freq='quarterly')
                 if not isinstance(income_stmt_quarterly, type(None)) and income_stmt_quarterly.shape[0] > 0:
                     data = income_stmt_quarterly
+                    # TODO: add ttm data from here instead of calling additional trailing endpoint
+                    # use following:
+                    # income_stmt_ttm = income_stmt_quarterly.T.head(4)
+                    # income_stmt_ttm_date = income_stmt_ttm.index[0]
+                    # income_stmt_ttm = income_stmt_ttm.sum()
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -94,6 +99,7 @@ class YahooF_Fundamental_Quarterly(YahooF):
         return data
 
     def proc_income_stmt_ttm(self,ticker):
+        # TODO: add ttm data from quarterly instead of calling additional trailing endpoint
         data = None
         while True:
             try:
@@ -113,6 +119,7 @@ class YahooF_Fundamental_Quarterly(YahooF):
         return data
 
     def proc_cash_flow_ttm(self,ticker):
+        # TODO: add ttm data from quarterly instead of calling additional trailing endpoint
         data = None
         while True:
             try:

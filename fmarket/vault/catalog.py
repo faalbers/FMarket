@@ -84,12 +84,27 @@ class Catalog():
                     ['sectorDisp', 'sector'],
                     ['industryDisp', 'industry'],
                     ['marketCap', 'market_cap'],
-                    # ['trailingPE', 'pe_ttm'],
-                    # ['forwardPE', 'pe_forward'],
-                    # ['trailingPegRatio', 'peg_ttm'],
                     ['fundOverview', 'fund_overview'],
                     ['earningsEstimate', 'earnings_estimate'],
                     ['growthEstimates', 'growth_estimates'],
+
+                    ['trailingPE', 'pe_ttm'],
+                    ['forwardPE', 'pe_forward'],
+
+                    ['epsTrailingTwelveMonths', 'eps_ttm'],
+                    ['epsForward', 'eps_forward'],
+                    
+                    # ['pegRatio', 'peg_forward'], # only one symbol with data
+                    ['trailingPegRatio', 'peg_forward'],
+                ],
+            },
+        },
+        'analysis_etrade': {
+            Etrade_Quote: {
+                'quote': [
+                    ['pe', 'pe_ttm_etrade'],
+                    ['eps', 'eps_ttm_etrade'],
+                    ['estEarnings', 'eps_est_curr_year_avg_etrade'],
                 ],
             },
         },
@@ -128,28 +143,28 @@ class Catalog():
                     # Cash Flow Statement
                     ['FreeCashFlow', 'free_cash_flow'],
                 ],
-                'quarterly': [
-                    # Income Statement
-                    ['TotalRevenue', 'total_revenue'],
-                    ['GrossProfit', 'gross_profit'],
-                    ['OperatingIncome', 'operating_income'],
-                    ['PretaxIncome', 'pretax_income'],
-                    ['NetIncome', 'net_income'],
-                    ['DilutedEPS', 'eps'],
-                    # ['DilutedAverageShares', 'shares'],
-                    ['OrdinarySharesNumber', 'shares'],
+                # 'quarterly': [
+                #     # Income Statement
+                #     ['TotalRevenue', 'total_revenue'],
+                #     ['GrossProfit', 'gross_profit'],
+                #     ['OperatingIncome', 'operating_income'],
+                #     ['PretaxIncome', 'pretax_income'],
+                #     ['NetIncome', 'net_income'],
+                #     ['DilutedEPS', 'eps'],
+                #     # ['DilutedAverageShares', 'shares'],
+                #     ['OrdinarySharesNumber', 'shares'],
 
-                    # Balance Sheet
-                    ['CurrentAssets', 'current_assets'],
-                    ['TotalAssets', 'total_assets'],
-                    ['CurrentLiabilities', 'current_liabilities'],
-                    ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
-                    ['StockholdersEquity', 'stockholders_equity'],
-                    ['TangibleBookValue', 'book_value'],
+                #     # Balance Sheet
+                #     ['CurrentAssets', 'current_assets'],
+                #     ['TotalAssets', 'total_assets'],
+                #     ['CurrentLiabilities', 'current_liabilities'],
+                #     ['CashAndCashEquivalents', 'cash_and_cash_equivalents'],
+                #     ['StockholdersEquity', 'stockholders_equity'],
+                #     ['TangibleBookValue', 'book_value'],
 
-                    # Cash Flow Statement
-                    ['FreeCashFlow', 'free_cash_flow'],
-                ],
+                #     # Cash Flow Statement
+                #     ['FreeCashFlow', 'free_cash_flow'],
+                # ],
             },
             YahooF_Fundamental_Yearly: {
                 'yearly': [

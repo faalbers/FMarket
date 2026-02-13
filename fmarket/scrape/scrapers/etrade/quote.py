@@ -221,3 +221,14 @@ class Etrade_Quote(Etrade):
             info += '%s    update     : %s symbols\n' % (tabs_string, len(status))
         
         return status, info
+
+    def get_vault_data(self, data_name, columns, key_values):
+        # get columns rename
+        column_rename = {x[0]: x[1] for x in columns}
+        
+        # handle tables
+        data = self.db.table_read(data_name, keys=key_values, columns=list(column_rename))
+        if len(columns) > 0:
+            data.rename(columns={c: cr for c, cr in column_rename.items() if c in data.columns}, inplace=True)
+        return data
+

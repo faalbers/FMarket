@@ -119,7 +119,7 @@ and often providing benefits like lower fees, fee-free fund exchanges, and conso
             'guidance': None,
             'values': [],
         },
-        'market_cap': {
+        'market_cap_name': {
             'info':
 """The market capitalization, or market cap, of a stock is the total market value of a company's outstanding shares,
 calculated by multiplying the current stock price by the number of shares outstanding. It's a key indicator of a

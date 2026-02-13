@@ -71,6 +71,7 @@ class YahooF_Estimates(YahooF):
     #     return data
 
     def proc_growth_estimates(self,ticker):
+        # TODO: skip this one and use growth in earnings_estimate which seems to be the same
         data = None
         while True:
             try:

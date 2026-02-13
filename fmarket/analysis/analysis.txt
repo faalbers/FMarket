@@ -1,0 +1,148 @@
+cache filter_data:
+
+- get info:
+    - name
+    - type
+    - sub_type
+    - sector
+    - industry
+    - market_cap
+    - fund_overview
+    - earnings_estimate
+    - growth_estimates
+    - pe_ttm
+    - pe_forward
+    - eps_ttm
+    - eps_forward
+    - peg_forward
+
+- fix 'Infinity
+
+- remove zero values of eps_ttm
+
+- add:
+    - market_cap_name
+    - fund_family
+    - fund_category
+
+- drop:
+    - fund_overview
+
+- add:
+    - eps_est_{curr, next}_{qtr, year}_{avg, low, high, growth, analysts, year_ago}
+    - growth_est_{curr, next}_{qtr, year}_{stock, stock}_trend
+
+- drop:
+    - growth_estimates
+
+- add values from etrade if not present in filter_data:
+    - pe_ttm
+    - eps_ttm
+
+- add:
+    - price: last adj_close price
+    - price_years: chart history years
+    - price_days_since: days ago since last chart price
+
+- get fundamentals ttm:
+    - total revenue
+    - gross profit margin:
+        (gross_profit / total_revenue) * 100
+    - operating profit margin:
+        (operating_income / total_revenue) * 100
+    - profit margin:
+        (pretax_income / total_revenue) * 100
+    - net profit margin:
+        (net_income / total_revenue) * 100
+    - free cash flow
+    - eps
+    - pe:
+        adj_close_period_last / eps
+
+- add values from fundamentals ttm if not present in filter_data:
+    - eps -> eps_ttm
+    - pe -> pe_ttm
+
+- drop from fundamentals ttm:
+    - eps
+    - pe
+    - free cash flow
+
+- add from fundamentals ttm and add _ttm:
+    - total_revenue_ttm
+    - gross_profit_margin_ttm
+    - operating_profit_margin_ttm
+    - profit_margin_ttm
+    - net_profit_margin_ttm
+
+- calculate pe_ttm if eps_ttm and price are available:
+    - pe_ttm = price / eps_ttm
+
+- get fundamentals yearly (yearly dataframe for each):
+    - current ratio:
+        (current_assets / current_liabilities) * 100
+    - cash ratio:
+        (cash_and_cash_equivalents / current_liabilities) * 100
+    - gross profit margin:
+        (gross_profit / total_revenue) * 100
+    - operating profit margin:
+        (operating_income / total_revenue) * 100
+    - profit margin:
+        (pretax_income / total_revenue) * 100
+    - net profit margin:
+        (net_income / total_revenue) * 100
+    - return on equity:
+        (net_income / stockholders_equity) * 100
+    - return on assets:
+        (net_income / total_assets) * 100
+    - pe:
+        adj_close_period_last / eps
+    - bvps:
+        book_value / shares
+    - pb:
+        adj_close_period_last / bvps
+    - ps:
+        adj_close_period_last / (total_revenue / shares)
+    - eps
+    - free cash flow
+    - price to free cash flow:
+        (adj_close_period_last * shares) / free_cash_flow
+    - total revenue
+    - net income
+
+- get trend values on fundamentals params:
+    - current_ratio_yearly_{count, end_year, growth, volatility}
+    - cash_ratio_yearly_{count, end_year, growth, volatility}
+    - gross_profit_margin_yearly_{count, end_year, growth, volatility}
+    - operating_profit_margin_yearly_{count, end_year, growth, volatility}
+    - profit_margin_yearly_{count, end_year, growth, volatility}
+    - net_profit_margin_yearly_{count, end_year, growth, volatility}
+    - return_on_equity_yearly_{count, end_year, growth, volatility}
+    - return_on_assets_yearly_{count, end_year, growth, volatility}
+    - pe_yearly_{count, end_year, growth, volatility}
+    - bvps_yearly_{count, end_year, growth, volatility}
+    - pb_yearly_{count, end_year, growth, volatility}
+    - ps_yearly_{count, end_year, growth, volatility}
+    - eps_yearly_{count, end_year, growth, volatility}
+    - free_cash_flow_yearly_{count, end_year, growth, volatility}
+    - total_revenue_yearly_{count, end_year, growth, volatility}
+    - net_income_yearly_{count, end_year, growth, volatility}
+
+- get dividends and dividend yields data:
+    - yearly (per year)
+    - ttm (per ttm period)
+
+- get trend values on dividend yields:
+    - dividend_yields_yearly_{count, end_year, growth, volatility}
+    - dividend_yields_ttm_{count, growth, volatility}
+
+- add:
+    - dividend_coverage_ratio: eps_ttm / dividends_ttm
+
+- add peers:
+
+    - add valutaions:
+        - price_est_forward_pe: eps_est_next_year_avg * pe_forward_peers_industry
+        - price_est_ttm_pe: eps_est_curr_year_avg * pe_ttm_peers_industry
+        - price_est_ttm_peg: (peg_ttm_peers_industry * growth_est_curr_year_stock_trend) * pe_ttm_peers_industry
+

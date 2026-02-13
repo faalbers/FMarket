@@ -1,4 +1,5 @@
 
+from fmarket.scrape.scrapers.etrade import etrade
 from ..tickers import Tickers
 from ..database import Database
 from ..utils import utils, FTime
@@ -6,6 +7,8 @@ from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
 import talib as ta
+
+from pprint import pp
 
 class Analysis():
     def __init__(self, symbols=[]):
@@ -103,6 +106,207 @@ class Analysis():
         return fundamentals
 
     def __cache_filter_data(self, symbols=[]):
+        # pd.options.display.float_format = '{:.3f}'.format
+        if len(symbols) == 0:
+            tickers = self.tickers
+        else:
+            tickers = Tickers(symbols)
+        print('update analysis cache on %s symbols' % tickers.count)
+
+        # handle info
+        print('get data: info')
+        info = tickers.get()
+        info = info.merge(
+            tickers.get_catalog('analysis_info')['YahooF_Info:info'],
+            how='outer', left_index=True, right_index=True)
+
+        # start filter data
+        filter_data = info.copy(deep=True)
+
+        # HANDLE INFO DATA
+        
+        # fix 'infinity' from info
+        for column in filter_data.columns[filter_data.apply(lambda x: 'Infinity' in x.values)]:
+            filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
+        
+        # make zero eps_ttm values nan
+        filter_data['eps_ttm'].replace(0, np.nan, inplace=True)
+        
+        # market cap name
+        market_cap = filter_data['market_cap'] / 1000000
+        filter_data.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
+        filter_data.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
+        filter_data.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
+        filter_data.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
+        # filter_data.drop('market_cap', axis=1, inplace=True)
+        # filter_data.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
+
+        # handle funds info
+        is_fund_overview = filter_data['fund_overview'].notna()
+        filter_data.loc[is_fund_overview, 'fund_category'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
+        filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
+        filter_data = filter_data.drop('fund_overview', axis=1)
+
+        # handle earnings_estimate
+        is_earnings_estimate = filter_data['earnings_estimate'].notna()
+        periods = {
+            '0q': 'curr_qtr',
+            '+1q': 'next_qtr',
+            '0y': 'curr_year',
+            '+1y': 'next_year',
+        }
+        params = {
+            'avg': 'avg',
+            'low': 'low',
+            'high': 'high',
+            'growth': 'growth',
+            'numberOfAnalysts': 'analysts',
+            'yearAgoEps': 'year_ago',
+        }
+        for symbol, ee in filter_data['earnings_estimate'][is_earnings_estimate].items():
+            for period, period_name in periods.items():
+                if not period in ee: continue
+                for param, param_name in params.items():
+                    if param in ee[period]:
+                        if param == 'growth':
+                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param] * 100
+                        else:
+                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
+        filter_data = filter_data.drop('earnings_estimate', axis=1)
+        
+        # handle growth_estimates
+        is_growth_estimates = filter_data['growth_estimates'].notna()
+        periods = {
+            '0q': 'curr_qtr',
+            '+1q': 'next_qtr',
+            '0y': 'curr_year',
+            '+1y': 'next_year',
+        }
+        for symbol, ee in filter_data['growth_estimates'][is_growth_estimates].items():
+            for period, period_name in periods.items():
+                if not period in ee: continue
+                if 'stockTrend' in ee[period]:
+                    filter_data.loc[symbol, 'growth_est_%s_stock_trend' % period_name] = ee[period]['stockTrend'] * 100
+                if 'indexTrend' in ee[period]:
+                    filter_data.loc[symbol, 'growth_est_%s_sp500_trend' % period_name] = ee[period]['indexTrend'] * 100
+        filter_data = filter_data.drop('growth_estimates', axis=1)
+
+        # HANDLE ETRADE DATA
+
+        etrade = tickers.get_catalog('analysis_etrade')['Etrade_Quote:quote']
+        etrade = etrade.replace(0, np.nan)
+        filter_data = filter_data.merge(etrade, how='left', left_index=True, right_index=True)
+        
+        eps_ttm_replace = filter_data['eps_ttm'].isna() & filter_data['eps_ttm_etrade'].notna()
+        filter_data.loc[eps_ttm_replace, 'eps_ttm'] = filter_data.loc[eps_ttm_replace, 'eps_ttm_etrade']
+        
+        pe_ttm_replace = filter_data['pe_ttm'].isna() & filter_data['pe_ttm_etrade'].notna()
+        filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'pe_ttm_etrade']
+
+        filter_data.drop(['pe_ttm_etrade', 'eps_ttm_etrade'], axis=1, inplace=True)
+
+        # infer all object columns
+        filter_data = filter_data.infer_objects().copy()
+
+        # HANDLE CHART DATA
+
+        print('get data: chart')
+        charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+
+        # get history years
+        now = FTime().now_naive
+        for symbol, chart in charts.items():
+            if not 'adj_close' in chart.columns: continue
+            filter_data.loc[symbol, 'price'] = chart['adj_close'].iloc[-1]
+            filter_data.loc[symbol, 'price_years'] = (chart.index[-1] - chart.index[0]).days / 365
+            filter_data.loc[symbol, 'price_days_since'] = (now - chart.index[-1]).days
+
+        # HANDLE FUNDAMENTALS DATA
+
+        print('get data: fundamentals ttm')
+        fundamental_data = tickers.get_catalog('analysis_fundamental')
+        
+        # get fundamentals ttm
+        fundamentals = {}
+        fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
+
+        # fill info values with fundamental ttm value if not present in info
+        filter_data = filter_data.merge(fundamentals['ttm'][['eps','pe']], how='left', left_index=True, right_index=True)        
+        
+        eps_ttm_replace = filter_data['eps_ttm'].isna() & filter_data['eps'].notna()
+        filter_data.loc[eps_ttm_replace, 'eps_ttm'] = filter_data.loc[eps_ttm_replace, 'eps']
+        filter_data.drop(['eps','pe'], axis=1, inplace=True)
+
+        # rename ttm parameters and merge
+        fundamentals['ttm'].drop(['eps','pe','free cash flow'], axis=1, inplace=True)
+        rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
+        fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
+        filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
+
+        # calcuate pe_ttm if price and eps_ttm available
+        pe_ttm_replace = filter_data['price'].notna() & filter_data['eps_ttm'].notna()
+        filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'price'] / filter_data.loc[pe_ttm_replace, 'eps_ttm']
+
+        # get fundamentals yearly
+        print('get data: fundamentals yearly')
+        fundamentals['yearly'] = self.__get_fundamental('yearly', fundamental_data['YahooF_Fundamental_Yearly:yearly'], charts)
+
+        # # get fundamentals quarterly
+        # print('get data: fundamentals quarterly')
+        # fundamentals['quarterly'] = self.__get_fundamental('quarterly', fundamental_data['YahooF_Fundamental_Quarterly:quarterly'], charts)
+
+        # get fundamentals trends
+        # params_skip = ['free cash flow', 'price to free cash flow']
+        params_skip = ['price to free cash flow']
+        # for period in ['yearly', 'quarterly']:
+        for period in ['yearly']:
+            print('set trends: fundamentals %s' % period)
+            for param, trend_data in fundamentals[period].items():
+                if trend_data.empty: continue
+                if param in params_skip: continue
+                name = param.replace(' ', '_')+'_'+period
+                if 'quarterly':
+                    trends = self.__get_trends(trend_data, name=name, check_gaps=False)
+                else:
+                    trends = self.__get_trends(trend_data, name=name)
+                end_period = trends[name+'_period_end'].infer_objects()
+                trends.drop(name+'_period_end', axis=1, inplace=True)
+                if period == 'quarterly':
+                    trends[name+'_end_year'] = end_period.dt.year
+                    trends[name+'_end_month'] = end_period.dt.month
+                elif period == 'yearly':
+                    trends[name+'_end_year'] = end_period
+                filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
+
+        # HANDLE DIVIDENDS DATA
+
+        # get dividends
+        dividends = self.__get_dividends(charts)
+        for period in ['yearly', 'ttm']:
+            name = 'dividend_yields_'+period
+            print('set trends: %s' % name)
+            trends = self.__get_trends(dividends['dividend_yields'][period], name=name)
+            period_end_name = name+'_period_end'
+            end_period = trends[period_end_name].infer_objects()
+            trends.drop(period_end_name, axis=1, inplace=True)
+            if period == 'yearly':
+                trends[name+'_end_year'] = end_period
+            filter_data = filter_data.merge(trends, how='left', left_index=True, right_index=True)
+
+        # get dividend coverage ratio
+        if not dividends['dividend_yields']['ttm'].empty:
+            dividend_coverage_ratio = filter_data['eps_ttm'] / dividends['dividends']['ttm'].T[0]
+            dividend_coverage_ratio.name = 'dividend_coverage_ratio'
+            filter_data = filter_data.merge(dividend_coverage_ratio, how='left', left_index=True, right_index=True)
+
+        # infer al object columns
+        filter_data = filter_data.infer_objects().copy()
+
+        # write to db
+        self.db.backup()
+        self.db.table_write('analysis', filter_data)
+
+    def __cache_filter_data_old(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
@@ -380,10 +584,21 @@ class Analysis():
                         filter_data.loc[peers_param_data.index, median_param] = median
                         filter_data.loc[peers_param_data.index, median_param+'_count'] = median_count
 
-        # add calculations with peers data
-        filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
-            * filter_data['growth_est_curr_year_stock_trend'] * filter_data['eps_est_next_year_avg']
+        # # add calculations with peers data
+        # filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
+        #     * filter_data['growth_est_curr_year_stock_trend'] * filter_data['eps_est_next_year_avg']
 
+        # # HANDLE VALUTATIONS
+        # filter_data['price_est_forward_pe'] = filter_data['eps_est_next_year_avg'] * filter_data['pe_forward_peers_industry']
+        # filter_data['price_est_ttm_pe'] = filter_data['eps_est_curr_year_avg'] * filter_data['pe_ttm_peers_industry']
+        # filter_data['price_est_ttm_peg'] = (filter_data['peg_ttm_peers_industry'] * filter_data['growth_est_curr_year_stock_trend']) \
+        #     * filter_data['pe_ttm_peers_industry']
+            
+        # filter_data['test_curr'] = filter_data['pe_ttm'] / filter_data['growth_est_curr_year_stock_trend']
+        # filter_data['test_next'] = filter_data['pe_ttm'] / filter_data['growth_est_next_year_stock_trend']
+
+        # filter_data['test_growth'] = filter_data['pe_ttm'] / filter_data['peg_ttm']
+    
     def _get_margins_of_safety(self, fundamentals, charts, info):
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
         if not 'yearly' in fundamentals: return data
@@ -586,11 +801,12 @@ class Analysis():
         trailing = trailing.merge(price, how='outer', left_index=True, right_index=True)
 
         data = pd.DataFrame()
-        if 'current_liabilities' in trailing.columns:
-            if 'current_assets' in trailing.columns:
-                data['current ratio'] = (trailing['current_assets'] / trailing['current_liabilities']) * 100
-            if 'cash_and_cash_equivalents' in trailing.columns:
-                data['cash ratio'] = (trailing['cash_and_cash_equivalents'] / trailing['current_liabilities']) * 100.0
+        # data does not seem to be in ttm
+        # if 'current_liabilities' in trailing.columns:
+        #     if 'current_assets' in trailing.columns:
+        #         data['current ratio'] = (trailing['current_assets'] / trailing['current_liabilities']) * 100
+        #     if 'cash_and_cash_equivalents' in trailing.columns:
+        #         data['cash ratio'] = (trailing['cash_and_cash_equivalents'] / trailing['current_liabilities']) * 100.0
         if 'total_revenue' in trailing.columns:
             data['total revenue'] = trailing['total_revenue']
             if 'gross_profit' in trailing.columns:
