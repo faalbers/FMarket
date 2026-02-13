@@ -173,23 +173,24 @@ class Analysis():
                         else:
                             filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
         filter_data = filter_data.drop('earnings_estimate', axis=1)
-        
-        # handle growth_estimates
-        is_growth_estimates = filter_data['growth_estimates'].notna()
-        periods = {
-            '0q': 'curr_qtr',
-            '+1q': 'next_qtr',
-            '0y': 'curr_year',
-            '+1y': 'next_year',
-        }
-        for symbol, ee in filter_data['growth_estimates'][is_growth_estimates].items():
-            for period, period_name in periods.items():
-                if not period in ee: continue
-                if 'stockTrend' in ee[period]:
-                    filter_data.loc[symbol, 'growth_est_%s_stock_trend' % period_name] = ee[period]['stockTrend'] * 100
-                if 'indexTrend' in ee[period]:
-                    filter_data.loc[symbol, 'growth_est_%s_sp500_trend' % period_name] = ee[period]['indexTrend'] * 100
-        filter_data = filter_data.drop('growth_estimates', axis=1)
+
+        # skipping this one and use growth in earnings_estimate which seems to be the same        
+        # # handle growth_estimates
+        # is_growth_estimates = filter_data['growth_estimates'].notna()
+        # periods = {
+        #     '0q': 'curr_qtr',
+        #     '+1q': 'next_qtr',
+        #     '0y': 'curr_year',
+        #     '+1y': 'next_year',
+        # }
+        # for symbol, ee in filter_data['growth_estimates'][is_growth_estimates].items():
+        #     for period, period_name in periods.items():
+        #         if not period in ee: continue
+        #         if 'stockTrend' in ee[period]:
+        #             filter_data.loc[symbol, 'growth_est_%s_stock_trend' % period_name] = ee[period]['stockTrend'] * 100
+        #         if 'indexTrend' in ee[period]:
+        #             filter_data.loc[symbol, 'growth_est_%s_sp500_trend' % period_name] = ee[period]['indexTrend'] * 100
+        # filter_data = filter_data.drop('growth_estimates', axis=1)
 
         # HANDLE ETRADE DATA
 

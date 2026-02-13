@@ -28,7 +28,7 @@ class YahooF_Estimates(YahooF):
         procs = {
             'earnings_estimate': self.proc_earnings_estimate,
             # 'revenue_estimate': self.proc_revenue_estimate,
-            'growth_estimates': self.proc_growth_estimates,
+            # 'growth_estimates': self.proc_growth_estimates,
         }
         self.multi_exec(procs, symbols)
 
@@ -71,7 +71,7 @@ class YahooF_Estimates(YahooF):
     #     return data
 
     def proc_growth_estimates(self,ticker):
-        # TODO: skip this one and use growth in earnings_estimate which seems to be the same
+        # skipping this one and use growth in earnings_estimate which seems to be the same
         data = None
         while True:
             try:
@@ -98,8 +98,9 @@ class YahooF_Estimates(YahooF):
             info['earningsEstimate'] = response_data['earnings_estimate'].T.to_dict()
         # if not isinstance(response_data['revenue_estimate'], type(None)):
         #     info['revenueEstimate'] = response_data['revenue_estimate'].T.to_dict()
-        if not isinstance(response_data['growth_estimates'], type(None)):
-            info['growthEstimates'] = response_data['growth_estimates'].T.to_dict()
+        # skipping this one and use growth in earnings_estimate which seems to be the same
+        # if not isinstance(response_data['growth_estimates'], type(None)):
+        #     info['growthEstimates'] = response_data['growth_estimates'].T.to_dict()
 
         status = pd.DataFrame({'estimates': 0}, index=[symbol])
         status.index.name = 'symbol'
@@ -108,7 +109,7 @@ class YahooF_Estimates(YahooF):
             valid = True
             info = pd.DataFrame([info], index=[symbol])
             info.index.name = 'symbol'
-            self.db.table_write('info', info)
+            print(info)
             status.loc[symbol, 'estimates'] = int(ftime.now_local.timestamp())
             valid = True
         
