@@ -4,6 +4,7 @@ import logging, time
 from pprint import pp
 from datetime import datetime
 import pandas as pd
+import numpy as np
 from ....utils import FTime
 
 class YahooF_Fundamental_Quarterly(YahooF):
@@ -29,8 +30,8 @@ class YahooF_Fundamental_Quarterly(YahooF):
             'income_stmt_quarterly': self.proc_income_stmt_quarterly,
             'cash_flow_quarterly': self.proc_cash_flow_quarterly,
             'balance_sheet_quarterly': self.proc_balance_sheet_quarterly,
-            'income_stmt_ttm': self.proc_income_stmt_ttm,
-            'cash_flow_ttm': self.proc_cash_flow_ttm,
+            # 'income_stmt_ttm': self.proc_income_stmt_ttm,
+            # 'cash_flow_ttm': self.proc_cash_flow_ttm,
         }
         self.multi_exec(procs, symbols)
 
@@ -43,11 +44,6 @@ class YahooF_Fundamental_Quarterly(YahooF):
                 income_stmt_quarterly = ticker.get_income_stmt(freq='quarterly')
                 if not isinstance(income_stmt_quarterly, type(None)) and income_stmt_quarterly.shape[0] > 0:
                     data = income_stmt_quarterly
-                    # TODO: add ttm data from here instead of calling additional trailing endpoint
-                    # use following:
-                    # income_stmt_ttm = income_stmt_quarterly.T.head(4)
-                    # income_stmt_ttm_date = income_stmt_ttm.index[0]
-                    # income_stmt_ttm = income_stmt_ttm.sum()
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -99,7 +95,7 @@ class YahooF_Fundamental_Quarterly(YahooF):
         return data
 
     def proc_income_stmt_ttm(self,ticker):
-        # TODO: add ttm data from quarterly instead of calling additional trailing endpoint
+        # use from quarterly instead of calling additional trailing endpoint
         data = None
         while True:
             try:
@@ -119,7 +115,7 @@ class YahooF_Fundamental_Quarterly(YahooF):
         return data
 
     def proc_cash_flow_ttm(self,ticker):
-        # TODO: add ttm data from quarterly instead of calling additional trailing endpoint
+        # use from quarterly instead of calling additional trailing endpoint
         data = None
         while True:
             try:
@@ -148,16 +144,41 @@ class YahooF_Fundamental_Quarterly(YahooF):
         quarterly = pd.DataFrame()
         ttm = pd.DataFrame()
         if not isinstance(response_data['income_stmt_quarterly'], type(None)):
-            quarterly = pd.concat([quarterly, response_data['income_stmt_quarterly']])
+            income_stmt_quarterly = response_data['income_stmt_quarterly']
+            quarterly = pd.concat([quarterly, income_stmt_quarterly])
+            
+            income_stmt_ttm = income_stmt_quarterly.T.head(4)
+            columns_last = [c for c in ['TaxRateForCalcs', 'DilutedAverageShares', 'BasicAverageShares'] if c in income_stmt_ttm.columns]
+            if len(columns_last) > 0:
+                last_quarter = income_stmt_ttm[columns_last].mean()
+            income_stmt_ttm_date = income_stmt_ttm.index[0]
+            income_stmt_ttm = income_stmt_ttm.sum().replace(0, np.nan)
+            if len(columns_last) > 0:
+                income_stmt_ttm.loc[columns_last] = last_quarter
+            income_stmt_ttm.name = income_stmt_ttm_date
+            income_stmt_ttm = income_stmt_ttm.to_frame()
+            
+            ttm = pd.concat([ttm, income_stmt_ttm])
         if not isinstance(response_data['cash_flow_quarterly'], type(None)):
-            quarterly = pd.concat([quarterly, response_data['cash_flow_quarterly']])
+            cash_flow_quarterly = response_data['cash_flow_quarterly']
+            quarterly = pd.concat([quarterly, cash_flow_quarterly])
+            
+            cash_flow_ttm = cash_flow_quarterly.T.head(4)
+            overwrite_params = {}
+            if 'BeginningCashPosition' in cash_flow_ttm.columns:
+                overwrite_params['BeginningCashPosition'] = cash_flow_ttm.iloc[-1]['BeginningCashPosition']
+            if 'EndCashPosition' in cash_flow_ttm.columns:
+                overwrite_params['EndCashPosition'] = cash_flow_ttm.iloc[0]['EndCashPosition']
+            cash_flow_ttm_date = cash_flow_ttm.index[0]
+            cash_flow_ttm = cash_flow_ttm.sum().replace(0, np.nan)
+            for param in overwrite_params:
+                cash_flow_ttm.loc[param] = overwrite_params[param]
+            cash_flow_ttm.name = cash_flow_ttm_date
+            cash_flow_ttm = cash_flow_ttm.to_frame()
+
+            ttm = pd.concat([ttm, cash_flow_ttm])
         if not isinstance(response_data['balance_sheet_quarterly'], type(None)):
             quarterly = pd.concat([quarterly, response_data['balance_sheet_quarterly']])
-        if not isinstance(response_data['income_stmt_ttm'], type(None)):
-            ttm = pd.concat([ttm, response_data['income_stmt_ttm']])
-        if not isinstance(response_data['cash_flow_ttm'], type(None)):
-            ttm = pd.concat([ttm, response_data['cash_flow_ttm']])
-        
         
         if quarterly.shape[0] > 0:
             valid = True
