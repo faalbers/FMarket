@@ -67,8 +67,10 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
     def get_fudamentals(self):
         data_type = self.data_type.get()
         y_label = data_type + ' %'
-        if data_type in ['free cash flow', 'total revenue']:
+        if data_type in ['free cash flow', 'total revenue', 'net income']:
             y_label = data_type + ' (millions)'
+        elif data_type in ['eps']:
+            y_label = data_type + ' $'
 
         data_period = self.data_period.get()
         x_label = data_period.rstrip('ly')
