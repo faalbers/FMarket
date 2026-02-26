@@ -109,7 +109,6 @@ class YahooF_Estimates(YahooF):
             valid = True
             info = pd.DataFrame([info], index=[symbol])
             info.index.name = 'symbol'
-            print(info)
             status.loc[symbol, 'estimates'] = int(ftime.now_local.timestamp())
             valid = True
         
