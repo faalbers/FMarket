@@ -185,25 +185,48 @@ class Analysis_GUI(tk.Tk):
 
         return (sorted(self.filter_data[select].index), columns)
 
-class Frame_Filters(tk.Frame):
-    # Frame that collects Frame_Filter widgets
+class Frame_Filters(ttk.Frame):
     
     def __init__(self, parent, filter_data):
         super().__init__(parent)
         self.parent = parent
         self.filter_data = filter_data
 
+        self.canvas = tk.Canvas(self)
+        self.canvas.pack(side='left', fill='both')
+
+        self.filters = Frame_Canvas_Filters(self)
+        self.canvas.create_window((0,0), window=self.filters, anchor='nw')
+    
+        self.canvas.config(width=900, height=200)
+
+        scrollbar = ttk.Scrollbar(self, orient = 'vertical', command=self.scroll_update)
+        self.canvas.config(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right', fill='y')
+
+
     def add_frame_filter(self, filter={'and': (), 'or': []}):
         # add a Frame Filter at every button click command
-        Frame_Filter(self, self.filter_data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
+        Frame_Filter(self.filters, self.filter_data, filter=filter).grid(row=self.filters.grid_size()[1],
+            column=0, sticky=tk.W)
+        self.scrollregion_update()
+        self.canvas.yview_moveto(1.0)
+
+    def scrollregion_update(self):
+        self.update_idletasks() # so we can get the correct size
+        self.canvas.config(scrollregion=(0,0, 900, self.filters.winfo_height()))
+
+    def scroll_update(self, *params):
+        self.canvas.yview(*params)
 
     def remove_frame_filter(self, frame_filter_a):
         frame_filter_a.destroy()
-        if len(self.winfo_children()) > 0:
-            for i, widget in enumerate(self.winfo_children()):
+        if len(self.filters.winfo_children()) > 0:
+            for i, widget in enumerate(self.filters.winfo_children()):
                 widget.grid_configure(row=i)
         else:
             self.parent.reset_frame_filters()
+        self.scrollregion_update()
 
     def set_filters(self, filters):
         for filter in filters:
@@ -211,9 +234,20 @@ class Frame_Filters(tk.Frame):
 
     def get_filters(self):
         filters = []
-        for frame_filter in self.winfo_children():
+        for frame_filter in self.filters.winfo_children():
             filters.append(frame_filter.get_filter())
         return filters
+
+class Frame_Canvas_Filters(ttk.Frame):
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.parent = parent
+
+    def remove_frame_filter(self, frame_filter_a):
+        self.parent.remove_frame_filter(frame_filter_a)
+    
+    def scrollregion_update(self):
+        self.parent.scrollregion_update()
 
 class Frame_Filter(tk.Frame):
     def __init__(self, parent, data, filter={'and': (), 'or': []}):
@@ -234,6 +268,7 @@ class Frame_Filter(tk.Frame):
 
     def remove_filter(self, filter_a):
         self.parent.remove_frame_filter(self)
+        self.parent.scrollregion_update()
 
     def add_filter(self):
         self.frame_filter_or.add_filter()
@@ -249,6 +284,7 @@ class Frame_Filter(tk.Frame):
 
         self.frame_filter_or = Frame_Filter_OR(self, self.filter_data, [])
         self.frame_filter_or.grid(row=1, column=0, sticky=tk.W, padx=20)
+        self.parent.scrollregion_update()
 
 class Frame_Filter_OR(tk.Frame):
     def __init__(self, parent, filter_data, filters=[]):
@@ -261,6 +297,7 @@ class Frame_Filter_OR(tk.Frame):
 
     def add_filter(self, filter=()):
         Filter(self, self.filter_data, filter=filter).grid(row=self.grid_size()[1], column=0, sticky=tk.W)
+        self.parent.parent.scrollregion_update()
 
     def remove_filter(self, filter_a):
         filter_a.destroy()
@@ -269,6 +306,7 @@ class Frame_Filter_OR(tk.Frame):
                 widget.grid_configure(row=i)
         else:
             self.parent.reset_frame_filter_or()
+        self.parent.parent.scrollregion_update()
 
     def get_filters(self):
         filters = []
