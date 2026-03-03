@@ -8,6 +8,7 @@ class Etrade(Broker):
         super().__init__('Etrade')
      
     def read_accounts(self):
+        # get csv files etrade site onder portfolios download arrow
         csv_files = glob.glob('data/etrade/*.csv')
         for csv_file in csv_files:
             data = pd.read_csv(csv_file, names=[chr(x+65) for x in range(13)])

@@ -24,6 +24,7 @@ class Analysis_Fundamentals_GUI(Analysis_Compare_GUI):
             'current ratio',
             'cash ratio',
             'free cash flow',
+            'return on equity',
         ]
         self.data_type = tk.StringVar()
         self.data_type.set(data_type[0])
