@@ -28,6 +28,20 @@ class Scrape():
                 else:
                     self.settings[setting] = False
 
+    def test(self, status_only=False, forced=False):
+        tickers_active = Tickers(symbols=self.symbols)
+        symbols = tickers_active.get()
+
+
+        scrapers = []
+
+        symbols_equity = symbols[symbols['type'] == 'EQUITY']
+        if symbols_equity.shape[0] > 0:
+            scrapers.append([YahooF_Fundamental_Yearly, sorted(symbols_equity.index), forced]) 
+            scrapers.append([YahooF_Fundamental_Quarterly, sorted(symbols_equity.index), forced]) 
+
+        Scrape_Multi(scrapers)
+
     def update(self, status_only=False, forced=False):
         # remove old scrape.log
         if not status_only and os.path.exists('scrape.log'): os.remove('scrape.log')
