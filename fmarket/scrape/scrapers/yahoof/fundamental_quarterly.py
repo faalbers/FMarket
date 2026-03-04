@@ -237,9 +237,10 @@ class YahooF_Fundamental_Quarterly(YahooF):
         else:
             # do status check
             if status_db.shape[0] > 0 and 'quarterly' in status_db.columns:
-                symbols_skip = status_db['quarterly'] == 0 # skip symbols that did not work last time
-                symbols_skip |= status_db['quarterly'] >= five_days_ts
-                symbols_skip |= (status_db['quarterly_last'] + (3600*24*(90+7))) > now_ts # skip the ones do not yet after a quarter
+                # symbols_skip = status_db['quarterly'] == 0 # skip symbols that did not work last time
+                symbols_skip = status_db['quarterly'] >= five_days_ts
+                # symbols_skip |= status_db['quarterly'] >= five_days_ts
+                # symbols_skip |= (status_db['quarterly_last'] + (3600*24*(90+7))) > now_ts # skip the ones do not yet after a quarter
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:
                 # we add all key_values to status
