@@ -128,7 +128,8 @@ class YahooF_Fundamental_Yearly(YahooF):
     def scrape_status(self, key_values=[], forced=False, tabs=0):
         # timestamps
         ftime = FTime()
-        five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
+        # five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
+        one_month_ts = ftime.get_offset(ftime.now_local, months=-1).timestamp()
         now_ts = ftime.now_local.timestamp()
 
         status_db = self.db.table_read('status_db')
@@ -143,9 +144,8 @@ class YahooF_Fundamental_Yearly(YahooF):
         else:
             # do status check
             if status_db.shape[0] > 0 and 'yearly' in status_db.columns:
-                # symbols_skip = status_db['yearly'] == 0 # skip symbols that did not work last time
-                # symbols_skip |= status_db['yearly'] >= five_days_ts
-                symbols_skip = status_db['yearly'] >= five_days_ts
+                symbols_skip = status_db['yearly'] == 0 # skip symbols that did not work last time
+                symbols_skip |= status_db['yearly'] >= one_month_ts
                 # symbols_skip |= (status_db['yearly_last'] + (3600*24*(365+14))) > now_ts # skip the ones do not yet after a year
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:
