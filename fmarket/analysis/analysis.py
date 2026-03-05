@@ -106,6 +106,9 @@ class Analysis():
         return fundamentals
 
     def __cache_filter_data(self, symbols=[]):
+        ftime = FTime()
+        start = ftime.now_local
+
         # pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
@@ -210,12 +213,13 @@ class Analysis():
         filter_data = filter_data.infer_objects().copy()
 
         # HANDLE CHART DATA
-
+        print(str(ftime.now_local - start).split('days')[-1])
+        start_chunk = ftime.now_local
         print('get data: chart')
         charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
 
         # get history years
-        now = FTime().now_naive
+        now = ftime.now_naive
         for symbol, chart in charts.items():
             if not 'adj_close' in chart.columns: continue
             filter_data.loc[symbol, 'price'] = chart['adj_close'].iloc[-1]
@@ -223,10 +227,18 @@ class Analysis():
             filter_data.loc[symbol, 'price_days_since'] = (now - chart.index[-1]).days
 
         # HANDLE FUNDAMENTALS DATA
-
-        print('get data: fundamentals ttm')
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('get data: fundamentals')
         fundamental_data = tickers.get_catalog('analysis_fundamental')
-        
+
+        # get fundamentals since times
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('get data: fundamentals time since')
+        fundamentals_time_since = self.__get_fundamentals_time_since(fundamental_data)
+        filter_data = filter_data.merge(fundamentals_time_since, how='left', left_index=True, right_index=True)
+
         # get fundamentals ttm
         fundamentals = {}
         fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
@@ -249,10 +261,14 @@ class Analysis():
         filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'price'] / filter_data.loc[pe_ttm_replace, 'eps_ttm']
 
         # get fundamentals yearly
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
         print('get data: fundamentals yearly')
         fundamentals['yearly'] = self.__get_fundamental('yearly', fundamental_data['YahooF_Fundamental_Yearly:yearly'], charts)
 
         # # get fundamentals quarterly
+        # print(str(ftime.now_local - start_chunk).split('days')[-1])
+        # start_chunk = ftime.now_local
         # print('get data: fundamentals quarterly')
         # fundamentals['quarterly'] = self.__get_fundamental('quarterly', fundamental_data['YahooF_Fundamental_Quarterly:quarterly'], charts)
 
@@ -261,6 +277,8 @@ class Analysis():
         params_skip = ['price to free cash flow']
         # for period in ['yearly', 'quarterly']:
         for period in ['yearly']:
+            print(str(ftime.now_local - start_chunk).split('days')[-1])
+            start_chunk = ftime.now_local
             print('set trends: fundamentals %s' % period)
             for param, trend_data in fundamentals[period].items():
                 if trend_data.empty: continue
@@ -285,6 +303,8 @@ class Analysis():
         dividends = self.__get_dividends(charts)
         for period in ['yearly', 'ttm']:
             name = 'dividend_yields_'+period
+            print(str(ftime.now_local - start_chunk).split('days')[-1])
+            start_chunk = ftime.now_local
             print('set trends: %s' % name)
             trends = self.__get_trends(dividends['dividend_yields'][period], name=name)
             period_end_name = name+'_period_end'
@@ -304,8 +324,17 @@ class Analysis():
         filter_data = filter_data.infer_objects().copy()
 
         # write to db
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('backup and write data')
         self.db.backup()
         self.db.table_write('analysis', filter_data)
+
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('done')
+
+        print('total time: ',str(ftime.now_local - start).split('days')[-1])
 
     def __cache_filter_data_old(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
@@ -569,9 +598,13 @@ class Analysis():
             'sector',
             'industry',
         ]
+        peers_added = {}
         for peers_type in peers_types:
+            # do peers type column exist
             if not peers_type in filter_data_all.columns: continue
+            # get all unique peers type names
             for peers_type_name in filter_data_all[peers_type].dropna().unique():
+                # get all unique peers type names
                 peers_data = filter_data_all[filter_data_all[peers_type] == peers_type_name]
                 for peers_param in peers_params:
                     if not peers_param in peers_data.columns: continue
@@ -584,6 +617,13 @@ class Analysis():
                     if peers_param_data.shape[0] > 0:
                         filter_data.loc[peers_param_data.index, median_param] = median
                         filter_data.loc[peers_param_data.index, median_param+'_count'] = median_count
+                        peers_added[median_param] = peers_param
+        
+        # add peer ratios
+        for peers_param, param in peers_added.items():
+            peers_param_ratio = '%s_ratio' % peers_param
+            filter_data[peers_param_ratio] = filter_data[param] - filter_data[peers_param]
+            filter_data[peers_param_ratio] = (filter_data[peers_param_ratio] / filter_data[peers_param].abs()) * 100
 
         # # add calculations with peers data
         # filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
@@ -934,4 +974,23 @@ class Analysis():
             # sort index
             data[parameter].sort_index(inplace=True)
 
+        return data
+
+    def __get_fundamentals_time_since(self, fundamental_data):
+        now_utc = FTime().now_naive
+        data = pd.DataFrame()
+        for symbol, period_data in fundamental_data['YahooF_Fundamental_Yearly:yearly'].items():
+            if 'total_revenue' not in period_data.columns: continue
+            total_revenue_period = period_data['total_revenue'].dropna()
+            if total_revenue_period.empty: continue
+            years_since = (now_utc - total_revenue_period.index[-1]).days / 365.0
+            data.loc[symbol, 'total_revenue_yearly_since'] = years_since
+        
+        for symbol, period_data in fundamental_data['YahooF_Fundamental_Quarterly:quarterly'].items():
+            if 'total_revenue' not in period_data.columns: continue
+            total_revenue_period = period_data['total_revenue'].dropna()
+            if total_revenue_period.empty: continue
+            quarters_since = (now_utc - total_revenue_period.index[-1]).days / (365.0 / 4.0)
+            data.loc[symbol, 'total_revenue_quarterly_since'] = quarters_since
+        
         return data
