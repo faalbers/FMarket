@@ -198,7 +198,7 @@ class Frame_Filters(ttk.Frame):
         self.filters = Frame_Canvas_Filters(self)
         self.canvas.create_window((0,0), window=self.filters, anchor='nw')
     
-        self.canvas.config(width=900, height=200)
+        self.canvas.config(width=900, height=700)
 
         scrollbar = ttk.Scrollbar(self, orient = 'vertical', command=self.scroll_update)
         self.canvas.config(yscrollcommand=scrollbar.set)
