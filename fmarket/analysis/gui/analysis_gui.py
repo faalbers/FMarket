@@ -428,6 +428,7 @@ class Filter(tk.Frame):
             if value in values:
                 entry.current(values.index(value))
             entry.bind("<<ComboboxSelected>>", lambda event: self.entry_changed(event, column))
+            entry.bind('<MouseWheel>', lambda event: 'break')
             entry.grid(row=0, column=column)
         else:
             entry = tk.Entry(self, width=45)
