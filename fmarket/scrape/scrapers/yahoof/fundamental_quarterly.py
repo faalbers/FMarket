@@ -27,23 +27,29 @@ class YahooF_Fundamental_Quarterly(YahooF):
         self.logger.info(self.db.backup())
 
         procs = {
-            'income_stmt_quarterly': self.proc_income_stmt_quarterly,
-            'cash_flow_quarterly': self.proc_cash_flow_quarterly,
-            'balance_sheet_quarterly': self.proc_balance_sheet_quarterly,
-            # 'income_stmt_ttm': self.proc_income_stmt_ttm,
-            # 'cash_flow_ttm': self.proc_cash_flow_ttm,
+            'income_stmt_quarterly': (self.proc_income_stmt_quarterly,),
+            'cash_flow_quarterly': (self.proc_cash_flow_quarterly, ('income_stmt_quarterly', 'do_quarterly')),
+            'balance_sheet_quarterly': (self.proc_balance_sheet_quarterly, ('income_stmt_quarterly', 'do_quarterly')),
+            'income_stmt_ttm': (self.proc_income_stmt_ttm, ('income_stmt_quarterly', 'do_ttm')),
+            'cash_flow_ttm': (self.proc_cash_flow_ttm, ('income_stmt_ttm', 'do_ttm')),
         }
         self.multi_exec(procs, symbols)
 
         self.logger.info('update done')
     
-    def proc_income_stmt_quarterly(self,ticker):
-        data = None
+    def proc_income_stmt_quarterly(self, ticker, results):
         while True:
             try:
                 income_stmt_quarterly = ticker.get_income_stmt(freq='quarterly')
-                if not isinstance(income_stmt_quarterly, type(None)) and income_stmt_quarterly.shape[0] > 0:
-                    data = income_stmt_quarterly
+                if not isinstance(income_stmt_quarterly, type(None)):
+                    if not income_stmt_quarterly.empty:
+                        valid_dates = income_stmt_quarterly.loc['TotalRevenue'].notna()
+                        results['status']['do_ttm'] = not valid_dates.iloc[0]
+                        income_stmt_quarterly = income_stmt_quarterly.loc[:, valid_dates]
+                        if not income_stmt_quarterly.empty:
+                            # valid data
+                            results['data'] = income_stmt_quarterly
+                            results['status']['do_quarterly'] = True
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -54,15 +60,14 @@ class YahooF_Fundamental_Quarterly(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def proc_cash_flow_quarterly(self,ticker):
-        data = None
+    def proc_cash_flow_quarterly(self, ticker, results):
         while True:
             try:
                 cash_flow_quarterly = ticker.get_cash_flow(freq='quarterly')
-                if not isinstance(cash_flow_quarterly, type(None)) and cash_flow_quarterly.shape[0] > 0:
-                    data = cash_flow_quarterly
+                if not isinstance(cash_flow_quarterly, type(None)):
+                    if cash_flow_quarterly.shape[0] > 0:
+                        results['data'] = cash_flow_quarterly
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -73,15 +78,14 @@ class YahooF_Fundamental_Quarterly(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def proc_balance_sheet_quarterly(self,ticker):
-        data = None
+    def proc_balance_sheet_quarterly(self, ticker, results):
         while True:
             try:
                 balance_sheet_quarterly = ticker.get_balance_sheet(freq='quarterly')
-                if not isinstance(balance_sheet_quarterly, type(None)) and balance_sheet_quarterly.shape[0] > 0:
-                    data = balance_sheet_quarterly
+                if not isinstance(balance_sheet_quarterly, type(None)):
+                    if balance_sheet_quarterly.shape[0] > 0:
+                        results['data'] = balance_sheet_quarterly
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -92,16 +96,15 @@ class YahooF_Fundamental_Quarterly(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def proc_income_stmt_ttm(self,ticker):
-        # use from quarterly instead of calling additional trailing endpoint
-        data = None
+    def proc_income_stmt_ttm(self, ticker, results):
         while True:
             try:
                 income_stmt_ttm = ticker.get_income_stmt(freq='trailing')
-                if not isinstance(income_stmt_ttm, type(None)) and income_stmt_ttm.shape[0] > 0:
-                    data = income_stmt_ttm
+                if not isinstance(income_stmt_ttm, type(None)):
+                    if income_stmt_ttm.shape[0] > 0:
+                        results['data'] = income_stmt_ttm
+                        results['status']['do_ttm'] = True
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -112,16 +115,14 @@ class YahooF_Fundamental_Quarterly(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def proc_cash_flow_ttm(self,ticker):
-        # use from quarterly instead of calling additional trailing endpoint
-        data = None
+    def proc_cash_flow_ttm(self, ticker, results):
         while True:
             try:
                 cash_flow_ttm = ticker.get_cash_flow(freq='trailing')
-                if not isinstance(cash_flow_ttm, type(None)) and cash_flow_ttm.shape[0] > 0:
-                    data = cash_flow_ttm
+                if not isinstance(cash_flow_ttm, type(None)):
+                    if cash_flow_ttm.shape[0] > 0:
+                        results['data'] = cash_flow_ttm
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -132,22 +133,37 @@ class YahooF_Fundamental_Quarterly(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def push_api_data(self, symbol, response_data):
+    def push_api_data(self, symbol, response_data, exec_count):
         ftime = FTime()
 
-        status = pd.DataFrame({'quarterly': 0, 'quarterly_last': 0, 'quarterly_count': 0}, index=[symbol])
+        status_init = {
+            'quarterly': int(ftime.now_local.timestamp()),
+            }
+        status = pd.DataFrame(status_init, index=[symbol])
         status.index.name = 'symbol'
 
-        valid = False
+        ok = False
         quarterly = pd.DataFrame()
         ttm = pd.DataFrame()
-        if not isinstance(response_data['income_stmt_quarterly'], type(None)):
-            income_stmt_quarterly = response_data['income_stmt_quarterly']
-            quarterly = pd.concat([quarterly, income_stmt_quarterly])
-            
-            income_stmt_ttm = income_stmt_quarterly.T.head(4)
+        if 'income_stmt_quarterly' in response_data:
+            ok = True
+            quarterly = pd.concat([quarterly, response_data['income_stmt_quarterly']['data']])
+        
+        if 'cash_flow_quarterly' in response_data:
+            concat_data = response_data['cash_flow_quarterly']['data']
+            concat_data = concat_data.loc[:, concat_data.columns.isin(quarterly.columns)]
+            quarterly = pd.concat([quarterly, concat_data])
+        
+        if 'balance_sheet_quarterly' in response_data:
+            concat_data = response_data['balance_sheet_quarterly']['data']
+            concat_data = concat_data.loc[:, concat_data.columns.isin(quarterly.columns)]
+            quarterly = pd.concat([quarterly, concat_data])
+        
+        if 'income_stmt_ttm' in response_data:
+            ttm = pd.concat([ttm, response_data['income_stmt_ttm']['data']])
+        elif 'income_stmt_quarterly' in response_data:
+            income_stmt_ttm = response_data['income_stmt_quarterly']['data'].T.head(4)
             columns_last = [c for c in ['TaxRateForCalcs', 'DilutedAverageShares', 'BasicAverageShares'] if c in income_stmt_ttm.columns]
             if len(columns_last) > 0:
                 last_quarter = income_stmt_ttm[columns_last].mean()
@@ -157,13 +173,12 @@ class YahooF_Fundamental_Quarterly(YahooF):
                 income_stmt_ttm.loc[columns_last] = last_quarter
             income_stmt_ttm.name = income_stmt_ttm_date
             income_stmt_ttm = income_stmt_ttm.to_frame()
-            
             ttm = pd.concat([ttm, income_stmt_ttm])
-        if not isinstance(response_data['cash_flow_quarterly'], type(None)):
-            cash_flow_quarterly = response_data['cash_flow_quarterly']
-            quarterly = pd.concat([quarterly, cash_flow_quarterly])
-            
-            cash_flow_ttm = cash_flow_quarterly.T.head(4)
+        
+        if 'cash_flow_ttm' in response_data:
+            ttm = pd.concat([ttm, response_data['cash_flow_ttm']['data']])
+        elif 'cash_flow_quarterly' in response_data:
+            cash_flow_ttm = response_data['cash_flow_quarterly']['data'].T.head(4)
             overwrite_params = {}
             if 'BeginningCashPosition' in cash_flow_ttm.columns:
                 overwrite_params['BeginningCashPosition'] = cash_flow_ttm.iloc[-1]['BeginningCashPosition']
@@ -175,55 +190,47 @@ class YahooF_Fundamental_Quarterly(YahooF):
                 cash_flow_ttm.loc[param] = overwrite_params[param]
             cash_flow_ttm.name = cash_flow_ttm_date
             cash_flow_ttm = cash_flow_ttm.to_frame()
-
             ttm = pd.concat([ttm, cash_flow_ttm])
-        if not isinstance(response_data['balance_sheet_quarterly'], type(None)):
-            quarterly = pd.concat([quarterly, response_data['balance_sheet_quarterly']])
-        
+
         if quarterly.shape[0] > 0:
-            valid = True
             quarterly = quarterly.T.infer_objects()
             quarterly.index = [int(ts.timestamp()) for ts in quarterly.index]
             quarterly.index.name = 'timestamp'
             quarterly.sort_index(inplace=True)
             quarterly = quarterly.copy() # to avoid 'DataFrame is highly fragmented'
             quarterly = quarterly.dropna(how='all', axis=0)
-            status.loc[symbol, 'quarterly'] = int(ftime.now_local.timestamp())
             status.loc[symbol, 'quarterly_last'] = quarterly.index[-1]
             status.loc[symbol, 'quarterly_count'] = quarterly.shape[0]
             self.db.table_write_reference(symbol, 'quarterly', quarterly, replace_table=True)
 
         if ttm.shape[0] > 0:
-            valid = True
             ttm = ttm.T.infer_objects()
             ttm.index = [int(ts.timestamp()) for ts in ttm.index]
             ttm.index.name = 'timestamp'
             ttm.sort_index(inplace=True)
             ttm = ttm.copy() # to avoid 'DataFrame is highly fragmented'
             ttm = ttm.dropna(how='all', axis=0)
-            if quarterly.shape[0] == 0:
-                status.loc[symbol, 'quarterly'] = int(ftime.now_local.timestamp())
-                status.loc[symbol, 'quarterly_last'] = ttm.index[-1]
-                status.loc[symbol, 'quarterly_count'] = 0
             if ttm.shape[0] > 1:
                 ttm.iloc[-1] = ttm.sum()
                 ttm = ttm.iloc[-1:]
             ttm.reset_index(inplace=True)
             ttm.index = [symbol]
             ttm.index.name = 'symbol'
+            status.loc[symbol, 'ttm_last'] = ttm.loc[symbol, 'timestamp']
             self.db.table_write('ttm', ttm)
 
         # update status
         self.db.table_write('status_db', status)
 
-        print(symbol, valid)
-        return valid
+        print(symbol, ok, exec_count)
+        return ok
 
     def scrape_status(self, key_values=[], forced=False, tabs=0):
         # timestamps
         ftime = FTime()
-        # five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
-        one_month_ts = ftime.get_offset(ftime.now_local, months=-1).timestamp()
+        now_utc_ts = ftime.now_utc.timestamp()
+        # last_quarter_ts = ftime.get_quarter_begin(ftime.now_utc).timestamp()
+        five_days_ts = ftime.get_offset(ftime.now_local, days=-5).timestamp()
         now_ts = ftime.now_local.timestamp()
 
         status_db = self.db.table_read('status_db')
@@ -238,9 +245,9 @@ class YahooF_Fundamental_Quarterly(YahooF):
         else:
             # do status check
             if status_db.shape[0] > 0 and 'quarterly' in status_db.columns:
-                symbols_skip = status_db['quarterly'] == 0 # skip symbols that did not work last time
-                symbols_skip |= status_db['quarterly'] >= one_month_ts
-                # symbols_skip |= (status_db['quarterly_last'] + (3600*24*(90+7))) > now_ts # skip the ones do not yet after a quarter
+                symbols_skip = status_db['quarterly'] >= five_days_ts
+                symbols_skip |= (status_db['quarterly_last'] + (3600*24*(31*3+14))) > now_utc_ts
+                # symbols_skip |= status_db['quarterly'] > last_quarter_ts
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:
                 # we add all key_values to status

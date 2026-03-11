@@ -2,13 +2,13 @@ from ..vault import Vault
 import pandas as pd
 
 class Tickers():
-    def __init__(self, symbols=[], yahoof=True, active=True):
+    def __init__(self, symbols=[], yahoof=True, active=True, active_years=None, active_quarters=None):
         self.vault = Vault()
-        self.__make_symbols(symbols, yahoof, active)
+        self.__make_symbols(symbols, yahoof, active, active_years, active_quarters)
         self.empty = self.__symbols.empty
         self.count = len(self.__symbols)
 
-    def __make_symbols(self, symbols, yahoof, active):
+    def __make_symbols(self, symbols, yahoof, active, active_years, active_quarters):
         symbols_data_vault = self.vault.get_data('tickers', key_values=symbols)
         # start creating symbols
         self.__symbols = pd.DataFrame()
@@ -75,11 +75,22 @@ class Tickers():
         # handle chart activity
         if active:
             if not symbols_data_vault['YahooF_Chart:status_db'].empty:
-                self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'],
+                chart_db_columns = ['chart', 'chart_count', 'chart_days_since', 'chart_interval_days', 'chart_active_years']
+                self.__symbols = self.__symbols.merge(symbols_data_vault['YahooF_Chart:status_db'][chart_db_columns],
                     how='outer', left_index=True, right_index=True)
-                self.__symbols['days'] = ((self.__symbols['chart'] - self.__symbols['chart_last']) / (3600*24))
-                self.__symbols = self.__symbols[self.__symbols['days'] <= 7]
-                self.__symbols.drop(['chart', 'chart_last', 'days'], axis=1, inplace=True)
+                
+                active_status = self.__symbols['chart_days_since'] < 5
+                active_status |= self.__symbols['chart_days_since'] <= self.__symbols['chart_interval_days']
+                active_status |= (self.__symbols['chart_count'] == 1) & (self.__symbols['chart_days_since'] <= 30)
+
+                self.__symbols = self.__symbols[active_status]
+
+                if not isinstance(active_years, type(None)):
+                    self.__symbols = self.__symbols[self.__symbols['chart_active_years'] >= active_years]
+                if not isinstance(active_quarters, type(None)):
+                    self.__symbols = self.__symbols[self.__symbols['chart_active_years'] >= active_quarters*0.25]
+
+                self.__symbols.drop(chart_db_columns, axis=1, inplace=True)
             else:
                 # it asks for active symbols, but since there is no chart, return nothing
                 self.__symbols = pd.DataFrame()

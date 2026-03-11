@@ -33,7 +33,12 @@ class Catalog():
             YahooF_Chart: {
                 'status_db': [
                     ['chart', 'chart'],
+                    ['chart_first', 'chart_first'],
                     ['chart_last', 'chart_last'],
+                    ['chart_active_years', 'chart_active_years'],
+                    ['chart_count', 'chart_count'],
+                    ['chart_days_since', 'chart_days_since'],
+                    ['chart_interval_days', 'chart_interval_days'],
                 ],
             },
         },

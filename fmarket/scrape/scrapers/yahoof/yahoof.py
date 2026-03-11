@@ -39,11 +39,26 @@ class YahooF():
             
             ticker = yf.Ticker(symbol)
             data = {}
-            for data_name, proc in procs.items():
-                arguments = {'ticker': ticker}
-                data[data_name] = self.exec_proc(proc, arguments)
+            exec_count = 0
+            for data_name, proc_tuple in procs.items():
+                proc = proc_tuple[0]
+                # check status
+                if len(proc_tuple) > 1:
+                    data_name_check, check_name = proc_tuple[1]
+                    if not data_name_check in data: continue
+                    if not check_name in data[data_name_check]['status']: continue
+                    if not data[data_name_check]['status'][check_name]: continue
+                results = {
+                    'data': None,
+                    'status': {},
+                }
+                arguments = {'ticker': ticker, 'results': results}
+                self.exec_proc(proc, arguments)
+                exec_count += 1
+                if isinstance(results['data'], type(None)): continue
+                data[data_name] = results
 
-            if not self.push_api_data(symbol, data):
+            if not self.push_api_data(symbol, data, exec_count):
                 failed += 1
                 failed_total += 1
             

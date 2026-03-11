@@ -71,6 +71,9 @@ class FTime:
     def get_from_ts_utc(self, ts):
         return pd.to_datetime(ts, unit='s', utc=True).tz_convert('UTC')
 
+    def get_from_ts_naive(self, ts):
+        return pd.to_datetime(ts, unit='s', utc=True).tz_convert(None)
+
     def get_date_naive(self, date=None, format=None, **arguments):
         if not isinstance(date, type(None)):
             if isinstance(format, type(None)):

@@ -29,16 +29,32 @@ class Scrape():
                     self.settings[setting] = False
 
     def test(self, status_only=False, forced=False):
-        tickers_active = Tickers(symbols=self.symbols)
-        symbols = tickers_active.get()
+        # tickers_active = Tickers(symbols=self.symbols)
+        # symbols_active = tickers_active.get()
+        
+        tickers_yahoof = Tickers(symbols=self.symbols, active=False)
+        symbols_yahoof = tickers_yahoof.get()
+
+        tickers_all = Tickers(symbols=self.symbols, yahoof=False, active=False)
+        symbols_all = tickers_all.get()
+        
+        # tickers_5q = Tickers(symbols=self.symbols, active_quarters=5)
+        # symbols_5q = tickers_5q.get()
 
 
         scrapers = []
 
-        symbols_equity = symbols[symbols['type'] == 'EQUITY']
-        if symbols_equity.shape[0] > 0:
-            scrapers.append([YahooF_Fundamental_Yearly, sorted(symbols_equity.index), forced]) 
-            scrapers.append([YahooF_Fundamental_Quarterly, sorted(symbols_equity.index), forced]) 
+        # symbols_scrape = symbols_active[symbols_active['type'] == 'EQUITY']
+        symbols_scrape = symbols_all
+        # symbols_scrape = symbols
+        # symbols_scrape = symbols_5q[symbols_5q['type'] == 'EQUITY']
+
+        symbols_scrape = sorted(symbols_scrape.index)
+        if len(symbols_scrape) > 0:
+            # scrapers.append([YahooF_Fundamental_Yearly, symbols_scrape, forced]) 
+            # scrapers.append([YahooF_Fundamental_Quarterly, symbols_scrape, forced]) 
+            # scrapers.append([YahooF_Chart, symbols_scrape, forced]) 
+            scrapers.append([YahooF_Info, symbols_scrape, forced]) 
 
         Scrape_Multi(scrapers)
 
@@ -70,29 +86,30 @@ class Scrape():
         tickers_all = Tickers(symbols=self.symbols, yahoof=False, active=False)
         tickers_yahoof = Tickers(symbols=self.symbols, active=False)
         tickers_active = Tickers(symbols=self.symbols)
+        tickers_five_quarters = Tickers(symbols=self.symbols, active_quarters=5)
 
         # add yahoof info
         if self.settings['yahoof_info']:
             symbols = tickers_all.get()
             scrapers.append([YahooF_Info, sorted(symbols.index), forced])
 
-            symbols = tickers_yahoof.get()
-            # add fund_overview
-            if 'type' in symbols:
-                symbols_fund = symbols[symbols['type'] == 'MUTUALFUND']
-                if symbols_fund.shape[0] > 0:
-                    scrapers.append([YahooF_Fund_Overview, sorted(symbols_fund.index), forced]) 
+            # symbols = tickers_yahoof.get()
+            # # add fund_overview
+            # if 'type' in symbols:
+            #     symbols_fund = symbols[symbols['type'] == 'MUTUALFUND']
+            #     if symbols_fund.shape[0] > 0:
+            #         scrapers.append([YahooF_Fund_Overview, sorted(symbols_fund.index), forced]) 
         
-            symbols = tickers_active.get()
-            # add estimates
-            if 'type' in symbols:
-                symbols_equity = symbols[symbols['type'] == 'EQUITY']
-                if symbols_equity.shape[0] > 0:
-                    scrapers.append([YahooF_Estimates, sorted(symbols_equity.index), forced]) 
+            # symbols = tickers_active.get()
+            # # add estimates
+            # if 'type' in symbols:
+            #     symbols_equity = symbols[symbols['type'] == 'EQUITY']
+            #     if symbols_equity.shape[0] > 0:
+            #         scrapers.append([YahooF_Estimates, sorted(symbols_equity.index), forced]) 
 
         # add fundamental
         if self.settings['yahoof_fundamental']:
-            symbols = tickers_active.get()
+            symbols = tickers_five_quarters.get()
             
             # add fund_overview
             if 'type' in symbols:
