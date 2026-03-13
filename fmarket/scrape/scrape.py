@@ -32,8 +32,8 @@ class Scrape():
         # tickers_active = Tickers(symbols=self.symbols)
         # symbols_active = tickers_active.get()
         
-        tickers_yahoof = Tickers(symbols=self.symbols, active=False)
-        symbols_yahoof = tickers_yahoof.get()
+        # tickers_yahoof = Tickers(symbols=self.symbols, active=False)
+        # symbols_yahoof = tickers_yahoof.get()
 
         tickers_all = Tickers(symbols=self.symbols, yahoof=False, active=False)
         symbols_all = tickers_all.get()
@@ -45,7 +45,7 @@ class Scrape():
         scrapers = []
 
         # symbols_scrape = symbols_active[symbols_active['type'] == 'EQUITY']
-        symbols_scrape = symbols_all
+        symbols_scrape = symbols_all.head(20)
         # symbols_scrape = symbols
         # symbols_scrape = symbols_5q[symbols_5q['type'] == 'EQUITY']
 

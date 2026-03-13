@@ -9,7 +9,6 @@ cache filter_data:
     - market_cap
     - fund_overview
     - earnings_estimate
-    - growth_estimates
     - pe_ttm
     - pe_forward
     - eps_ttm
@@ -139,9 +138,43 @@ cache filter_data:
 - add:
     - dividend_coverage_ratio: eps_ttm / dividends_ttm
 
-- add peers:
+- add:
+    - ttm_yearly: (ttm - yearly) / abs(yearly):
+        - total_revenue
+        - dividend_yields
+        - eps
+        - pe
+        - gross_profit_margin
+        - operating_profit_margin
+        - net_profit_margin
+        - profit_margin
 
-    - add valutaions:
+AFTER cache_filter_data:
+- add peers:
+    - industry and sector:
+        - pe_ttm
+        - eps_ttm
+        - pe_forward
+        - peg_ttm
+        - peg_forward
+        - current_ratio_yearly
+        - gross_profit_margin_yearly
+        - gross_profit_margin_ttm
+        - operating_profit_margin_ttm
+        - operating_profit_margin_yearly
+        - profit_margin_ttm
+        - profit_margin_yearly
+        - net_profit_margin_yearly
+        - net_profit_margin_ttm
+        - ps_yearly
+        - return_on_assets_yearly
+        - return_on_equity_yearly
+        - growth_est_curr_year_stock_trend
+        - growth_est_next_year_stock_trend
+        - total_revenue_yearly_growth
+        - profit_margin_yearly_growth
+
+    - add valutaions: (in progress)
         - price_est_forward_pe: eps_est_next_year_avg * pe_forward_peers_industry
         - price_est_ttm_pe: eps_est_curr_year_avg * pe_ttm_peers_industry
         - price_est_ttm_peg: (peg_ttm_peers_industry * growth_est_curr_year_stock_trend) * pe_ttm_peers_industry

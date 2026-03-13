@@ -91,7 +91,7 @@ class Catalog():
                     ['marketCap', 'market_cap'],
                     ['fundOverview', 'fund_overview'],
                     ['earningsEstimate', 'earnings_estimate'],
-                    ['growthEstimates', 'growth_estimates'],
+                    # ['growthEstimates', 'growth_estimates'],
 
                     ['trailingPE', 'pe_ttm'],
                     ['forwardPE', 'pe_forward'],

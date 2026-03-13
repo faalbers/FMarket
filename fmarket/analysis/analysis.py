@@ -30,7 +30,7 @@ class Analysis():
                 filter_data = self.db.table_read('analysis', keys=symbols)
         
         # add peers data
-        self.__add_peers_data(filter_data)
+        filter_data = self.__add_peers_data(filter_data)
 
         return filter_data
 
@@ -122,7 +122,6 @@ class Analysis():
         info = info.merge(
             tickers.get_catalog('analysis_info')['YahooF_Info:info'],
             how='outer', left_index=True, right_index=True)
-
         # start filter data
         filter_data = info.copy(deep=True)
 
@@ -145,10 +144,11 @@ class Analysis():
         # filter_data.rename(columns={'market_cap_name': 'market_cap'}, inplace=True)
 
         # handle funds info
-        is_fund_overview = filter_data['fund_overview'].notna()
-        filter_data.loc[is_fund_overview, 'fund_category'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
-        filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
-        filter_data = filter_data.drop('fund_overview', axis=1)
+        if 'fund_overview' in filter_data.columns:
+            is_fund_overview = filter_data['fund_overview'].notna()
+            filter_data.loc[is_fund_overview, 'fund_category'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
+            filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
+            filter_data = filter_data.drop('fund_overview', axis=1)
 
         # handle earnings_estimate
         is_earnings_estimate = filter_data['earnings_estimate'].notna()
@@ -323,6 +323,27 @@ class Analysis():
         # infer al object columns
         filter_data = filter_data.infer_objects().copy()
 
+        # add ttm to yearly
+        if 'total_revenue_yearly' in filter_data.columns:
+            ttm_to_yearly_params = [
+                'total_revenue',
+                'dividend_yields',
+                'eps',
+                'pe',
+                'gross_profit_margin',
+                'operating_profit_margin',
+                'net_profit_margin',
+                'profit_margin',
+            ]
+            for param in ttm_to_yearly_params:
+                ttm_param = param + '_ttm'
+                yearly_param = param + '_yearly'
+                ttm_to_yearly_param = param + '_ttm_to_yearly'
+                if ttm_param in filter_data.columns and yearly_param in filter_data.columns:
+                    ttm_to_yearly = filter_data[ttm_param] - filter_data[yearly_param]
+                    ttm_to_yearly /= filter_data[yearly_param].abs()
+                    filter_data[ttm_to_yearly_param] = ttm_to_yearly * 100.0
+
         # write to db
         print(str(ftime.now_local - start_chunk).split('days')[-1])
         start_chunk = ftime.now_local
@@ -487,8 +508,12 @@ class Analysis():
         filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
         # add ttm growth
+        for column in sorted(filter_data.columns): print(column)
         if 'total_revenue_yearly' in filter_data.columns:
-            filter_data['total_revenue_ttm_growth'] = ((filter_data['total_revenue_ttm'] / filter_data['total_revenue_yearly'])- 1.0) * 100.0
+            total_revenue_ttm_growth = filter_data['total_revenue_ttm'] - filter_data['total_revenue_yearly']
+            total_revenue_ttm_growth /= filter_data['total_revenue_yearly'].abs()
+            # filter_data['total_revenue_ttm_growth'] = ((filter_data['total_revenue_ttm'] / filter_data['total_revenue_yearly'])- 1.0) * 100.0
+            filter_data['total_revenue_ttm_growth'] = total_revenue_ttm_growth * 100.0
 
         # clean up filter data
 
@@ -593,6 +618,8 @@ class Analysis():
             'return_on_equity_yearly',
             'growth_est_curr_year_stock_trend',
             'growth_est_next_year_stock_trend',
+            'total_revenue_yearly_growth',
+            'profit_margin_yearly_growth',
         ]
         peers_types = [
             'sector',
@@ -619,12 +646,17 @@ class Analysis():
                         filter_data.loc[peers_param_data.index, median_param+'_count'] = median_count
                         peers_added[median_param] = peers_param
         
+        # avoid fragmented data
+        filter_data = filter_data.copy()
+
         # add peer ratios
         for peers_param, param in peers_added.items():
             peers_param_ratio = '%s_ratio' % peers_param
             filter_data[peers_param_ratio] = filter_data[param] - filter_data[peers_param]
             filter_data[peers_param_ratio] = (filter_data[peers_param_ratio] / filter_data[peers_param].abs()) * 100
 
+        return filter_data
+    
         # # add calculations with peers data
         # filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
         #     * filter_data['growth_est_curr_year_stock_trend'] * filter_data['eps_est_next_year_avg']
