@@ -97,6 +97,8 @@ class YahooF_Info(YahooF):
         if 'info' in response_data:
             ok = True
             info = response_data['info']['data']
+            # remove all None's
+            info = {param: value for param, value in info.items() if not isinstance(value, type(None))}
             # clean up some stuff
             if 'companyOfficers' in info: info.pop('companyOfficers')
             if 'executiveTeam' in info: info.pop('executiveTeam')

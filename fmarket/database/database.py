@@ -119,7 +119,7 @@ class Database():
         table_columns = [x[0] for x in execution.description]
         table_data = execution.fetchall()
         cursor.close()
-        table_data = pd.DataFrame(table_data, columns=table_columns)
+        table_data = pd.DataFrame(table_data, columns=table_columns).dropna(axis=1, how='all')
 
         # handle primary key
         if len(primary_key_columns) > 0:
