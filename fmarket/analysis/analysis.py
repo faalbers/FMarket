@@ -620,6 +620,7 @@ class Analysis():
             'growth_est_next_year_stock_trend',
             'total_revenue_yearly_growth',
             'profit_margin_yearly_growth',
+            'gross_profit_margin_yearly_growth',
         ]
         peers_types = [
             'sector',

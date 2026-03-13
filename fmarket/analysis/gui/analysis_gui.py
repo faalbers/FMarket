@@ -54,10 +54,11 @@ class Analysis_GUI(tk.Tk):
 
     @staticmethod
     def recurse_state(root, state):
-        if isinstance(root, tk.Frame):
+        if isinstance(root, tk.Frame) or isinstance(root, ttk.Frame):
             for child in root.winfo_children():
                 Analysis_GUI.recurse_state(child, state)
         else:
+            if isinstance(root, ttk.Scrollbar): return
             root.configure(state=state)
 
     def disable_window(self):
