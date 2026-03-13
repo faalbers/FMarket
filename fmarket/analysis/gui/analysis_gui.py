@@ -48,6 +48,9 @@ class Analysis_GUI(tk.Tk):
         tk.Button(frame_filter_actions, text='Save Filters', command=self.save_filters).pack(side='left')
         tk.Button(frame_filter_actions, text='Load Filters', command=self.load_filters).pack(side='left')
         tk.Button(frame_filter_actions, text='Clear Filters', command=self.clear_filters).pack(side='left')
+        self.inverse_filter = tk.BooleanVar()
+        tk.Checkbutton(frame_filter_actions, text='inverse filter',
+            variable=self.inverse_filter).pack(side='left')
 
     @staticmethod
     def recurse_state(root, state):
@@ -183,6 +186,7 @@ class Analysis_GUI(tk.Tk):
 
             select = select & or_select
 
+        if self.inverse_filter.get(): select = ~select
         return (sorted(self.filter_data[select].index), columns)
 
 class Frame_Filters(ttk.Frame):
