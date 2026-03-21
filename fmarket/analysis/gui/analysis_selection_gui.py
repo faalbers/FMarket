@@ -82,6 +82,17 @@ class Analysis_Selection_GUI(tk.Toplevel):
         else:
             file = filedialog.asksaveasfile(initialdir='settings/selections/symbols', filetypes=[('SELECTION', '*.ssel')], defaultextension='.ssel', mode='w')
             if file != None:
+                data_text = ''
+                selection = []
+                for sel in tree_selection:
+                    selection.append(sel['symbol'])
+                    data_text += '\n%s\n' % sel['symbol']
+                    data_text += '  %s\n' % sel['name']
+                    data_text += '  %s: %s\n' % (sel['sector'], sel['industry'])
+                data_path = 'data/symbols/%s.txt' % file.name.split('/')[-1].split('.')[0]
+                with open(data_path, 'w') as data_file:
+                    data_file.write(data_text)
+                print(selection)
                 json.dump(tree_selection, file, indent=4)
                 file.close()
 

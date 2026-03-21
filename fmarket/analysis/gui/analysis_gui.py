@@ -59,7 +59,10 @@ class Analysis_GUI(tk.Tk):
                 Analysis_GUI.recurse_state(child, state)
         else:
             if isinstance(root, ttk.Scrollbar): return
-            root.configure(state=state)
+            try:
+                root.configure(state=state)
+            except:
+                Exception('could not set state of %s' % type(root))
 
     def disable_window(self):
         for child in self.winfo_children():
