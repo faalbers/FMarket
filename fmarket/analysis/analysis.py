@@ -243,22 +243,23 @@ class Analysis():
         fundamentals = {}
         fundamentals['ttm'] = self.__get_fundamental_ttm(fundamental_data['YahooF_Fundamental_Quarterly:ttm'], charts).T
 
-        # fill info values with fundamental ttm value if not present in info
-        filter_data = filter_data.merge(fundamentals['ttm'][['eps','pe']], how='left', left_index=True, right_index=True)        
-        
-        eps_ttm_replace = filter_data['eps_ttm'].isna() & filter_data['eps'].notna()
-        filter_data.loc[eps_ttm_replace, 'eps_ttm'] = filter_data.loc[eps_ttm_replace, 'eps']
-        filter_data.drop(['eps','pe'], axis=1, inplace=True)
+        if not fundamentals['ttm'].empty:
+            # fill info value with fundamental ttm value if not present in info
+            filter_data = filter_data.merge(fundamentals['ttm'][['eps']], how='left', left_index=True, right_index=True)        
+            
+            eps_ttm_replace = filter_data['eps_ttm'].isna() & filter_data['eps'].notna()
+            filter_data.loc[eps_ttm_replace, 'eps_ttm'] = filter_data.loc[eps_ttm_replace, 'eps']
+            filter_data.drop(['eps'], axis=1, inplace=True)
 
-        # rename ttm parameters and merge
-        fundamentals['ttm'].drop(['eps','pe','free cash flow'], axis=1, inplace=True)
-        rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
-        fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
-        filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
+            # rename ttm parameters and merge
+            fundamentals['ttm'].drop(['eps','pe','free cash flow'], axis=1, inplace=True)
+            rename = {c:(c.replace(' ', '_')+'_ttm') for c in fundamentals['ttm'].columns}
+            fundamentals['ttm'] = fundamentals['ttm'].rename(columns=rename)
+            filter_data = filter_data.merge(fundamentals['ttm'], how='left', left_index=True, right_index=True)
 
-        # calcuate pe_ttm if price and eps_ttm available
-        pe_ttm_replace = filter_data['price'].notna() & filter_data['eps_ttm'].notna()
-        filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'price'] / filter_data.loc[pe_ttm_replace, 'eps_ttm']
+            # calcuate pe_ttm if price and eps_ttm available
+            pe_ttm_replace = filter_data['price'].notna() & filter_data['eps_ttm'].notna()
+            filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'price'] / filter_data.loc[pe_ttm_replace, 'eps_ttm']
 
         # get fundamentals yearly
         print(str(ftime.now_local - start_chunk).split('days')[-1])

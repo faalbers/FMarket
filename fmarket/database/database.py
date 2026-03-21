@@ -120,6 +120,7 @@ class Database():
         table_data = execution.fetchall()
         cursor.close()
         table_data = pd.DataFrame(table_data, columns=table_columns).dropna(axis=1, how='all')
+        if table_data.empty: return pd.DataFrame()
 
         # handle primary key
         if len(primary_key_columns) > 0:
@@ -254,7 +255,9 @@ class Database():
         return timeseries
 
     def table_read_reference(self, reference, keys=[], columns=[], index_date=False):
-        reference_table = self.table_read('table_reference', keys=keys, columns=[reference])[reference]
+        reference_table = self.table_read('table_reference', keys=keys, columns=[reference])
+        if not reference in reference_table.columns: return pd.DataFrame()
+        reference_table = reference_table[reference]
         
         timeseries = {}
         if reference_table.shape[0] < 1200:
