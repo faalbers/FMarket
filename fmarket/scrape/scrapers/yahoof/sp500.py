@@ -54,21 +54,18 @@ class YahooF_SP500(YahooF):
         self.logger.info(self.db.backup())
 
         procs = {
-            'info': self.proc_info,
+            'info': (self.proc_info,),
         }
         self.multi_exec(procs, symbols)
 
         self.logger.info('update done')
     
-    def proc_info(self,ticker):
-        data = None
+    def proc_info(self, ticker, results):
         while True:
             try:
                 info = ticker.info
                 if not isinstance(info, type(None)) and 'quoteType' in info:
-                    data = info
-                # else:
-                #     data = 'info is None'
+                    results['data'] = info
             except Exception as e:
                 if str(e) == 'Too Many Requests. Rate limited. Try after a while.':
                     self.logger.info('Rate Limeit: wait 60 seconds')
@@ -78,33 +75,36 @@ class YahooF_SP500(YahooF):
                     pass
                     # data[2]['info'] = str(e)
             break
-        return data
 
-    def push_api_data(self, symbol, response_data):
+    def push_api_data(self, symbol, response_data, exec_count):
         ftime = FTime()
         result_data = response_data['info']
 
-        status = pd.DataFrame({'info': 0}, index=[symbol])
+        status_init = {
+            'info': int(ftime.now_local.timestamp()),
+            'invalid': True,
+        }
+        status = pd.DataFrame(status_init, index=[symbol])
         status.index.name = 'symbol'
 
-        valid = False
-        if not isinstance(result_data, type(None)):
+        ok = False
+        if 'info' in response_data:
+            ok = True
+            info = response_data['info']['data']
             # clean up some stuff
-            if 'companyOfficers' in result_data: result_data.pop('companyOfficers')
-            if 'executiveTeam' in result_data: result_data.pop('executiveTeam')
-            if 'symbol' in result_data: result_data.pop('symbol')
-            result = pd.DataFrame([result_data], index=[symbol])
-            result.index.name = 'symbol'
-            self.db.table_write('info', result)
-            status.loc[symbol, 'info'] = int(ftime.now_local.timestamp())
-            valid = True
+            if 'companyOfficers' in info: info.pop('companyOfficers')
+            if 'executiveTeam' in info: info.pop('executiveTeam')
+            if 'symbol' in info: info.pop('symbol')
+            info = pd.DataFrame([info], index=[symbol])
+            info.index.name = 'symbol'
+            status.loc[symbol, 'invalid'] = False
+            self.db.table_write('info', info)
 
         # update status
         self.db.table_write('status_db', status)
 
-        print(symbol, valid)
-        print(result)
-        return valid
+        print(symbol, ok, exec_count)
+        return ok
 
     def scrape_status(self, key_values=[], forced=False, tabs=0):
         # timestamps
