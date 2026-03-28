@@ -197,4 +197,20 @@ class Catalog():
                 ],
             },
         },
+        'analysis_prices_info': {
+            YahooF_Info: {
+                'info': [
+                    ['sectorDisp', 'sector'],
+                    ['industryDisp', 'industry'],
+                    ['marketCap', 'market_cap'],
+                ],
+            },
+        },
+        'analysis_prices': {
+            YahooF_Chart: {
+                'chart': [
+                    ['Adj Close', 'adj_close'],
+                ],
+            },
+        },
     }

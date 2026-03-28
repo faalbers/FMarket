@@ -135,8 +135,9 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
             self.charts = self.charts.merge(adj_close, how='outer', left_index=True, right_index=True)
             self.charts = self.charts.rename(columns={'adj_close': symbol})
         
-        self.charts_sectors = analysis.get_chart_sector().ffill().dropna()
-        sectors = analysis.get_filter_data()['sector'].dropna()
+        # self.charts_sectors = analysis.get_chart_sector().ffill().dropna()
+        filter_data, self.charts_sectors, self.charts_industry = analysis.get_data()
+        sectors = filter_data['sector'].dropna()
         self.sectors = sorted(sectors.unique())
 
         self.sector_symbols = {'N/A': symbols, 'All': symbols}
@@ -168,6 +169,7 @@ class Analysis_Charts_GUI(Analysis_Compare_GUI):
         if self.sector_relative.get() and sector != 'N/A':
             compare = compare.merge(self.charts_sectors[sector], how='outer', left_index=True, right_index=True)
             compare = compare.ffill().dropna()
+            print(compare)
             sector_chart = compare[sector]
             sector_chart = sector_chart / sector_chart.iloc[0]
             compare = compare.drop(sector, axis=1)

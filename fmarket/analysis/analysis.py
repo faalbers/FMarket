@@ -2,40 +2,66 @@
 from fmarket.scrape.scrapers.etrade import etrade
 from ..tickers import Tickers
 from ..database import Database
-from ..utils import utils, FTime
+from ..utils import utils, FTime, storage
 from dateutil.relativedelta import relativedelta
 import pandas as pd
 import numpy as np
 import talib as ta
-
-from pprint import pp
 
 class Analysis():
     def __init__(self, symbols=[]):
         self.db = Database('analysis')
         self.tickers = Tickers(symbols)
 
-    def get_filter_data(self, update_cache=False):
+    def get_data(self, update_cache=False):
         symbols = self.tickers.get().index
         if update_cache:
             # cache all symbols first
+            self.db.backup()
             self.__cache_filter_data()
+            self.__cache_price_growth()
             filter_data = self.db.table_read('analysis', keys=symbols)
+            sectors = self.db.table_read('sectors')
+            industries = self.db.table_read('industries')
         else:
             # cache only missing data
             filter_data = self.db.table_read('analysis', keys=symbols)
+            sectors = self.db.table_read('sectors')
+            industries = self.db.table_read('industries')
             missing = set(symbols).difference(filter_data.index)
             if len(missing) > 0:
+                self.db.backup()
                 self.__cache_filter_data(missing)
+                self.__cache_price_growth()
                 filter_data = self.db.table_read('analysis', keys=symbols)
-        
+                sectors = self.db.table_read('sectors')
+                industries = self.db.table_read('industries')
+
+        # change to datetime index
+        sectors.index = pd.to_datetime(sectors.index, unit='s')
+        sectors.index.name = 'date'
+        industries.index = pd.to_datetime(industries.index, unit='s')
+        industries.index.name = 'date'
+
         # add peers data
         filter_data = self.__add_peers_data(filter_data)
 
-        return filter_data
+        return filter_data, sectors, industries
 
     def get_chart(self):
         return self.tickers.get_chart()
+    
+    def get_category_chart(self):
+        sectors = self.db.table_read('sectors')
+        industries = self.db.table_read('industries')
+
+        # change to datetime index
+        sectors.index = pd.to_datetime(sectors.index, unit='s')
+        sectors.index.name = 'date'
+        industries.index = pd.to_datetime(industries.index, unit='s')
+        industries.index.name = 'date'
+
+        return sectors, industries
     
     def get_news(self):
         return self.tickers.get_news()
@@ -105,6 +131,113 @@ class Analysis():
 
         return fundamentals
 
+    def __cache_price_growth(self):
+        ftime = FTime()
+        start = ftime.now_local
+        start_chunk = start
+
+        tickers = Tickers()
+        print('update price growth on %s symbols' % tickers.count)
+
+        print('get data: info sectors')
+        info = tickers.get_catalog('analysis_info')['YahooF_Info:info']
+        info = info[info['sector'].notna()]
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        
+        print('get data: charts sectors on %s symbols' % info.shape[0])
+        charts = Tickers(info.index).get_catalog('analysis_prices', )['YahooF_Chart:chart']
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        
+        print('retrieve: prices and categories')
+        prices = {}
+        count_to_do = len(charts)
+        for symbol, chart in charts.items():
+            if (count_to_do % 1000) == 0:
+                print('  to do: %s' % count_to_do)
+            if not chart.empty:
+                prices[symbol] = chart['adj_close'].to_dict()
+            count_to_do -= 1
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        
+        print('create: prices')
+        prices = pd.DataFrame(prices).sort_index()
+
+        # interpolate missing gaps
+        prices = prices.interpolate(method='linear', limit_area='inside')
+
+        # drop symbols with negative values
+        prices = prices[prices.columns[~(prices < 0).any()]]
+
+        # keep symbols that were active one month ago from last retrieval
+        active_date = prices.index[-1]
+        active_date = ftime.get_offset(active_date, months=-1)
+        active_date = prices.loc[:active_date].index[-1]
+        active_symbols = prices.loc[active_date].dropna().index
+        prices = prices[active_symbols]
+        info = info.loc[active_symbols]
+
+        # get symbols for all sectors and industries
+        categories = {'sectors': {}, 'industries': {}}
+        for sector in info['sector'].dropna().unique():
+            categories['sectors'][sector] = info.loc[info['sector'] == sector].index
+        for industry in info['industry'].dropna().unique():
+            categories['industries'][industry] = info.loc[info['industry'] == industry].index   
+
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+
+        for category, category_data in categories.items():
+            category_growth = {}
+            print('create: category %s' % category)
+            for group, symbols in categories[category].items():
+                # get market caps
+                market_cap = info.loc[symbols,'market_cap'].dropna()
+                market_cap = market_cap[market_cap > 0].sort_values(ascending=False)
+                market_cap = market_cap[(market_cap / market_cap.max()) >= 0.01]
+                market_cap = market_cap[market_cap.index.isin(prices.columns)]
+                
+                # get group symbols
+                group_prices = prices[market_cap.index]
+
+                # get date range with enough data
+                prices_count = group_prices.count(axis=1)
+                first_date = prices_count[prices_count >= (prices_count.max() / 10)].index[0]
+                last_date = prices_count[prices_count == prices_count.max()].index[-1]
+                group_prices = group_prices.loc[first_date:last_date]
+
+                # drop any symbol where at least one value is nan
+                group_prices = group_prices.dropna(axis=1)
+
+                # sanity check
+                sanity = (group_prices.max() - group_prices.min()) / group_prices.median()
+                sanity = sanity[(sanity > 0) & (sanity <= 20)]
+                group_prices = group_prices[sanity.index]
+
+                # market cap weights
+                market_cap = market_cap[group_prices.columns]
+                market_cap_weight = market_cap / market_cap.sum()
+
+                # get weighted growth
+                group_prices_weighted = group_prices * market_cap_weight
+                group_prices_weighted = group_prices_weighted.sum(axis=1)
+                growth_weighted = group_prices_weighted / group_prices_weighted.iloc[0]
+
+                category_growth[group] = growth_weighted.to_dict()
+
+            category_growth = pd.DataFrame(category_growth)
+            category_growth.index = [int(ts.timestamp()) for ts in category_growth.index]
+            category_growth.index.name = 'timestamp'
+
+            self.db.table_write(category, category_growth, replace_table=True)
+            print(str(ftime.now_local - start_chunk).split('days')[-1])
+            start_chunk = ftime.now_local
+        
+        print('done')
+        print('total: ', str(ftime.now_local - start).split('days')[-1])
+
     def __cache_filter_data(self, symbols=[]):
         ftime = FTime()
         start = ftime.now_local
@@ -151,31 +284,32 @@ class Analysis():
             filter_data = filter_data.drop('fund_overview', axis=1)
 
         # handle earnings_estimate
-        is_earnings_estimate = filter_data['earnings_estimate'].notna()
-        periods = {
-            '0q': 'curr_qtr',
-            '+1q': 'next_qtr',
-            '0y': 'curr_year',
-            '+1y': 'next_year',
-        }
-        params = {
-            'avg': 'avg',
-            'low': 'low',
-            'high': 'high',
-            'growth': 'growth',
-            'numberOfAnalysts': 'analysts',
-            'yearAgoEps': 'year_ago',
-        }
-        for symbol, ee in filter_data['earnings_estimate'][is_earnings_estimate].items():
-            for period, period_name in periods.items():
-                if not period in ee: continue
-                for param, param_name in params.items():
-                    if param in ee[period]:
-                        if param == 'growth':
-                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param] * 100
-                        else:
-                            filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
-        filter_data = filter_data.drop('earnings_estimate', axis=1)
+        if 'earnings_estimate' in filter_data.columns:
+            is_earnings_estimate = filter_data['earnings_estimate'].notna()
+            periods = {
+                '0q': 'curr_qtr',
+                '+1q': 'next_qtr',
+                '0y': 'curr_year',
+                '+1y': 'next_year',
+            }
+            params = {
+                'avg': 'avg',
+                'low': 'low',
+                'high': 'high',
+                'growth': 'growth',
+                'numberOfAnalysts': 'analysts',
+                'yearAgoEps': 'year_ago',
+            }
+            for symbol, ee in filter_data['earnings_estimate'][is_earnings_estimate].items():
+                for period, period_name in periods.items():
+                    if not period in ee: continue
+                    for param, param_name in params.items():
+                        if param in ee[period]:
+                            if param == 'growth':
+                                filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param] * 100
+                            else:
+                                filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
+            filter_data = filter_data.drop('earnings_estimate', axis=1)
 
         # skipping this one and use growth in earnings_estimate which seems to be the same        
         # # handle growth_estimates
@@ -349,7 +483,6 @@ class Analysis():
         print(str(ftime.now_local - start_chunk).split('days')[-1])
         start_chunk = ftime.now_local
         print('backup and write data')
-        self.db.backup()
         self.db.table_write('analysis', filter_data)
 
         print(str(ftime.now_local - start_chunk).split('days')[-1])
