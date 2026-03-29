@@ -156,8 +156,9 @@ class YahooF_Fundamental_Yearly(YahooF):
         else:
             # do status check
             if status_db.shape[0] > 0 and 'yearly' in status_db.columns:
-                symbols_skip = status_db['yearly'] >= five_days_ts
-                symbols_skip |= (status_db['yearly_last'] + (3600*24*(365+14))) > now_utc_ts
+                symbols_skip = status_db['yearly'] >= five_days_ts # do not handle if done 5 days ago
+                symbols_skip |= (status_db['yearly_last'] + (3600*24*(365+14))) > now_utc_ts # do not get if last yearly has not passed a year plus yet
+                symbols_skip |= (status_db['yearly'] - status_db['yearly_last']) > (3600*24*(356*2)) # do not get if last yearly was more then two years ago
                 # symbols_skip |= status_db['yearly'] > last_quarter_ts
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:

@@ -245,8 +245,10 @@ class YahooF_Fundamental_Quarterly(YahooF):
         else:
             # do status check
             if status_db.shape[0] > 0 and 'quarterly' in status_db.columns:
-                symbols_skip = status_db['quarterly'] >= five_days_ts
-                symbols_skip |= (status_db['quarterly_last'] + (3600*24*(31*3+14))) > now_utc_ts
+                symbols_skip = status_db['quarterly'] >= five_days_ts # do not handle if done 5 days ago
+                symbols_skip |= (status_db['quarterly_last'] + (3600*24*(31*3+14))) > now_utc_ts # do not get if last quarterly has not passed 1 quarters plus yet
+                symbols_skip |= (status_db['quarterly'] - status_db['quarterly_last']) > (3600*24*356) # do not get if last quarterly was more then a year ago
+
                 # symbols_skip |= status_db['quarterly'] > last_quarter_ts
                 status = sorted(set(key_values).difference(status_db[symbols_skip].index))
             else:
