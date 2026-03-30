@@ -21,21 +21,19 @@ class Analysis():
             self.__cache_filter_data()
             self.__cache_price_growth()
             filter_data = self.db.table_read('analysis', keys=symbols)
-            sectors = self.db.table_read('sectors')
-            industries = self.db.table_read('industries')
         else:
             # cache only missing data
             filter_data = self.db.table_read('analysis', keys=symbols)
-            sectors = self.db.table_read('sectors')
-            industries = self.db.table_read('industries')
             missing = set(symbols).difference(filter_data.index)
             if len(missing) > 0:
                 self.db.backup()
                 self.__cache_filter_data(missing)
                 self.__cache_price_growth()
                 filter_data = self.db.table_read('analysis', keys=symbols)
-                sectors = self.db.table_read('sectors')
-                industries = self.db.table_read('industries')
+
+        sectors = self.db.table_read('sectors')
+        industries = self.db.table_read('industries')
+        industries_sector = self.db.table_read('industries_sector')
 
         # change to datetime index
         sectors.index = pd.to_datetime(sectors.index, unit='s')
@@ -46,7 +44,7 @@ class Analysis():
         # add peers data
         filter_data = self.__add_peers_data(filter_data)
 
-        return filter_data, sectors, industries
+        return filter_data, sectors, industries, industries_sector
 
     def get_chart(self):
         return self.tickers.get_chart()
@@ -181,10 +179,14 @@ class Analysis():
 
         # get symbols for all sectors and industries
         categories = {'sectors': {}, 'industries': {}}
+        industries_sector = {}
         for sector in info['sector'].dropna().unique():
-            categories['sectors'][sector] = info.loc[info['sector'] == sector].index
+            sector_symbols = info.loc[info['sector'] == sector]
+            categories['sectors'][sector] = sector_symbols.index
+            industries_sector = {**industries_sector, **{i: sector for i in sector_symbols['industry'].unique()}}
         for industry in info['industry'].dropna().unique():
-            categories['industries'][industry] = info.loc[info['industry'] == industry].index   
+            industry_symbols = info.loc[info['industry'] == industry]
+            categories['industries'][industry] = industry_symbols.index
 
         print(str(ftime.now_local - start_chunk).split('days')[-1])
         start_chunk = ftime.now_local
@@ -192,7 +194,7 @@ class Analysis():
         for category, category_data in categories.items():
             category_growth = {}
             print('create: category %s' % category)
-            for group, symbols in categories[category].items():
+            for group, symbols in category_data.items():
                 # get market caps
                 market_cap = info.loc[symbols,'market_cap'].dropna()
                 market_cap = market_cap[market_cap > 0].sort_values(ascending=False)
@@ -234,7 +236,15 @@ class Analysis():
             self.db.table_write(category, category_growth, replace_table=True)
             print(str(ftime.now_local - start_chunk).split('days')[-1])
             start_chunk = ftime.now_local
-        
+
+        # create idustries sector list
+        industries_sector = pd.Series(industries_sector)
+        industries_sector.name = 'sector'
+        industries_sector.index.name = 'industry'
+        industries_sector = industries_sector.to_frame()
+        industries_sector.sort_index(inplace=True)
+        self.db.table_write('industries_sector', industries_sector, replace_table=True)
+
         print('done')
         print('total: ', str(ftime.now_local - start).split('days')[-1])
 

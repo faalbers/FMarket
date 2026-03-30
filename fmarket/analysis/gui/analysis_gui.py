@@ -20,10 +20,11 @@ class Analysis_GUI(tk.Tk):
 
     def set_filter_data(self, symbols, update_cache=False):
         analysis = Analysis(symbols)
-        self.filter_data, sectors, industries = analysis.get_data(update_cache=update_cache)
+        self.filter_data, sectors, industries, industries_sector = analysis.get_data(update_cache=update_cache)
         self.growth_data = {
             'sectors': sectors,
             'industries': industries,
+            'industries_sector': industries_sector,
         }
     
     def build_gui(self):
