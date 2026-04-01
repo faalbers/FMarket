@@ -1,4 +1,3 @@
-
 from fmarket.scrape.scrapers.etrade import etrade
 from ..tickers import Tickers
 from ..database import Database
@@ -20,6 +19,7 @@ class Analysis():
             self.db.backup()
             self.__cache_filter_data()
             self.__cache_price_growth()
+            self.__cache_peers()
             filter_data = self.db.table_read('analysis', keys=symbols)
         else:
             # cache only missing data
@@ -29,6 +29,7 @@ class Analysis():
                 self.db.backup()
                 self.__cache_filter_data(missing)
                 self.__cache_price_growth()
+                self.__cache_peers()
                 filter_data = self.db.table_read('analysis', keys=symbols)
 
         sectors = self.db.table_read('sectors')
@@ -41,8 +42,8 @@ class Analysis():
         industries.index = pd.to_datetime(industries.index, unit='s')
         industries.index.name = 'date'
 
-        # add peers data
-        filter_data = self.__add_peers_data(filter_data)
+        # # add peers data
+        # filter_data = self.__add_peers_data(filter_data)
 
         return filter_data, sectors, industries, industries_sector
 
@@ -129,6 +130,143 @@ class Analysis():
 
         return fundamentals
 
+    def __cache_peers(self):
+        ftime = FTime()
+        start = ftime.now_local
+        start_chunk = start
+
+        peers_params = [
+            'pe_ttm',
+            'eps_ttm',
+            'pe_forward',
+            # 'peg_ttm',
+            'peg_forward',
+            'current_ratio_yearly',
+            'gross_profit_margin_yearly',
+            'gross_profit_margin_ttm',
+            'operating_profit_margin_ttm',
+            'operating_profit_margin_yearly',
+            'profit_margin_ttm',
+            'profit_margin_yearly',
+            'net_profit_margin_yearly',
+            'net_profit_margin_ttm',
+            'ps_yearly',
+            'return_on_assets_yearly',
+            'return_on_equity_yearly',
+            # 'growth_est_curr_year_stock_trend',
+            # 'growth_est_next_year_stock_trend',
+            'total_revenue_yearly_growth',
+            'profit_margin_yearly_growth',
+            'gross_profit_margin_yearly_growth',
+        ]
+
+        print('update sector and industry peers on %s params' % len(peers_params))
+
+        print('get data: info sectors')
+
+        filter_data = self.db.table_read('analysis')
+        filter_data_params = filter_data[filter_data.columns[filter_data.columns.isin(peers_params)]].copy()
+        filter_data_params = filter_data_params.replace([float('inf'), float('-inf')], value=np.nan)
+
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+
+        print('get data: market cap weights')
+        market_cap_weights = self.__get_market_cap_weights()
+
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+
+        filter_data_new = {}
+        
+        print('build data: params peers')
+        for category, market_cap_weights_category in market_cap_weights.items():
+            for category_name, category_weight in market_cap_weights_category.items():
+                category_data = filter_data_params[filter_data_params.index.isin(category_weight.index)].copy()
+                category_data[category_weight.name] = category_weight.loc[category_data.index]
+                for param in filter_data_params.columns:
+                    param_data = category_data[[param, category_weight.name]].dropna()
+                    if param_data.empty: continue
+                    
+                    # normalize sum to 1.0
+                    weight_sum = param_data[category_weight.name].sum()
+                    weight_mult = 1.0 / weight_sum
+                    param_data[category_weight.name] = param_data[category_weight.name] * weight_mult
+
+                    # get weighted growth
+                    param_weighted = param_data[param] * param_data[category_weight.name]
+                    param_weighted_volatility = param_weighted.std() / abs(param_weighted.mean())
+                    # param_median = param_weighted.median() * param_weighted.shape[0]
+                    param_weighted = param_weighted.sum()
+
+                    param_weighted_name = '%s_peers_%s' % (param, category)
+                    
+                    symbols = filter_data[filter_data[category] == category_name].index
+                    
+                    param_weighted = {symbol: param_weighted for symbol in symbols}
+                    if not param_weighted_name in filter_data_new:
+                        filter_data_new[param_weighted_name] = param_weighted
+                    else:
+                        filter_data_new[param_weighted_name].update(param_weighted)
+                    
+                    param_weighted_count = {symbol: param_data.shape[0] for symbol in symbols}
+                    if not param_weighted_name+'_count' in filter_data_new:
+                        filter_data_new[param_weighted_name+'_count'] = param_weighted_count
+                    else:
+                        filter_data_new[param_weighted_name+'_count'].update(param_weighted_count)
+
+                    param_weighted_volatility = {symbol: param_weighted_volatility for symbol in symbols}
+                    if not param_weighted_name+'_volatility' in filter_data_new:
+                        filter_data_new[param_weighted_name+'_volatility'] = param_weighted_volatility
+                    else:
+                        filter_data_new[param_weighted_name+'_volatility'].update(param_weighted_volatility)
+
+
+        # put it all in a dataframe
+        filter_data_new = pd.DataFrame(filter_data_new)
+        filter_data_new.index.name = 'symbol'
+        
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+
+        self.db.table_write('analysis', filter_data_new)
+
+        print('done')
+        print('total: ', str(ftime.now_local - start).split('days')[-1])
+
+
+    def __get_market_cap_weights(self, industries_sector=pd.DataFrame(), threshold=0.01):
+        # get info with sector
+        info = Tickers().get_catalog('analysis_info')['YahooF_Info:info']
+        info = info[info['sector'].notna()]
+
+        if industries_sector.empty:
+            industries_sector = self.db.table_read('industries_sector')
+
+        market_cap_weights = {'sector': {}, 'industry': {}}
+        
+        for sector in industries_sector['sector'].unique():
+            sector_symbols = info[info['sector'] == sector]
+            market_caps = sector_symbols['market_cap']
+            market_cap = market_caps.dropna()
+            market_cap = market_cap[market_cap > 0].sort_values(ascending=False)
+            market_cap = market_cap[(market_cap / market_cap.max()) >= threshold]
+            market_cap_weight = market_cap / market_cap.sum()
+            market_cap_weight.name = 'sector_weight_%s' % sector
+            market_cap_weights['sector'][sector] = market_cap_weight
+
+        for industry in industries_sector.index:
+            industry_symbols = info[info['industry'] == industry]
+            market_caps = industry_symbols['market_cap']
+            market_cap = market_caps.dropna()
+            market_cap = market_cap[market_cap > 0].sort_values(ascending=False)
+            market_cap = market_cap[(market_cap / market_cap.max()) >= threshold]
+            market_cap_weight = market_cap / market_cap.sum()
+            market_cap_weight.name = 'industry_weight_%s' % industry
+            market_cap_weights['industry'][industry] = market_cap_weight
+
+        return market_cap_weights
+    
     def __cache_price_growth(self):
         ftime = FTime()
         start = ftime.now_local
@@ -187,6 +325,17 @@ class Analysis():
         for industry in info['industry'].dropna().unique():
             industry_symbols = info.loc[info['industry'] == industry]
             categories['industries'][industry] = industry_symbols.index
+        industries_sector = pd.Series(industries_sector)
+        industries_sector.name = 'sector'
+        industries_sector.index.name = 'industry'
+        industries_sector = industries_sector.to_frame()
+        industries_sector.sort_index(inplace=True)
+
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+
+        print('get data: market cap weights')
+        market_cap_weights_new = self.__get_market_cap_weights(industries_sector=industries_sector)
 
         print(str(ftime.now_local - start_chunk).split('days')[-1])
         start_chunk = ftime.now_local
@@ -196,13 +345,14 @@ class Analysis():
             print('create: category %s' % category)
             for group, symbols in category_data.items():
                 # get market caps
-                market_cap = info.loc[symbols,'market_cap'].dropna()
-                market_cap = market_cap[market_cap > 0].sort_values(ascending=False)
-                market_cap = market_cap[(market_cap / market_cap.max()) >= 0.01]
-                market_cap = market_cap[market_cap.index.isin(prices.columns)]
-                
-                # get group symbols
-                group_prices = prices[market_cap.index]
+                if category == 'sectors':
+                    market_cap = market_cap_weights_new['sector'][group]
+                elif category == 'industries':
+                    market_cap = market_cap_weights_new['industry'][group]
+                market_cap_weight = market_cap[market_cap.index.isin(prices.columns)]
+
+                # get group rices
+                group_prices = prices[market_cap_weight.index]
 
                 # get date range with enough data
                 prices_count = group_prices.count(axis=1)
@@ -217,10 +367,6 @@ class Analysis():
                 sanity = (group_prices.max() - group_prices.min()) / group_prices.median()
                 sanity = sanity[(sanity > 0) & (sanity <= 20)]
                 group_prices = group_prices[sanity.index]
-
-                # market cap weights
-                market_cap = market_cap[group_prices.columns]
-                market_cap_weight = market_cap / market_cap.sum()
 
                 # get weighted growth
                 group_prices_weighted = group_prices * market_cap_weight
@@ -237,12 +383,7 @@ class Analysis():
             print(str(ftime.now_local - start_chunk).split('days')[-1])
             start_chunk = ftime.now_local
 
-        # create idustries sector list
-        industries_sector = pd.Series(industries_sector)
-        industries_sector.name = 'sector'
-        industries_sector.index.name = 'industry'
-        industries_sector = industries_sector.to_frame()
-        industries_sector.sort_index(inplace=True)
+        # write idustries sector list
         self.db.table_write('industries_sector', industries_sector, replace_table=True)
 
         print('done')
@@ -740,83 +881,6 @@ class Analysis():
 
         return data
 
-    def __add_peers_data(self, filter_data):
-        filter_data_all = self.db.table_read('analysis')
-        peers_params = [
-            'pe_ttm',
-            'eps_ttm',
-            'pe_forward',
-            'peg_ttm',
-            'peg_forward',
-            'current_ratio_yearly',
-            'gross_profit_margin_yearly',
-            'gross_profit_margin_ttm',
-            'operating_profit_margin_ttm',
-            'operating_profit_margin_yearly',
-            'profit_margin_ttm',
-            'profit_margin_yearly',
-            'net_profit_margin_yearly',
-            'net_profit_margin_ttm',
-            'ps_yearly',
-            'return_on_assets_yearly',
-            'return_on_equity_yearly',
-            'growth_est_curr_year_stock_trend',
-            'growth_est_next_year_stock_trend',
-            'total_revenue_yearly_growth',
-            'profit_margin_yearly_growth',
-            'gross_profit_margin_yearly_growth',
-        ]
-        peers_types = [
-            'sector',
-            'industry',
-        ]
-        peers_added = {}
-        for peers_type in peers_types:
-            # do peers type column exist
-            if not peers_type in filter_data_all.columns: continue
-            # get all unique peers type names
-            for peers_type_name in filter_data_all[peers_type].dropna().unique():
-                # get all unique peers type names
-                peers_data = filter_data_all[filter_data_all[peers_type] == peers_type_name]
-                for peers_param in peers_params:
-                    if not peers_param in peers_data.columns: continue
-                    peers_param_data = peers_data[peers_param].dropna()
-                    if peers_param_data.empty: continue
-                    median_param = '%s_peers_%s' % (peers_param, peers_type)
-                    median = peers_param_data.median()
-                    median_count = peers_param_data.count()
-                    peers_param_data = peers_param_data[peers_param_data.index.isin(filter_data.index)]
-                    if peers_param_data.shape[0] > 0:
-                        filter_data.loc[peers_param_data.index, median_param] = median
-                        filter_data.loc[peers_param_data.index, median_param+'_count'] = median_count
-                        peers_added[median_param] = peers_param
-        
-        # avoid fragmented data
-        filter_data = filter_data.copy()
-
-        # add peer ratios
-        for peers_param, param in peers_added.items():
-            peers_param_ratio = '%s_ratio' % peers_param
-            filter_data[peers_param_ratio] = filter_data[param] - filter_data[peers_param]
-            filter_data[peers_param_ratio] = (filter_data[peers_param_ratio] / filter_data[peers_param].abs()) * 100
-
-        return filter_data
-    
-        # # add calculations with peers data
-        # filter_data['adj_close_estimated_value'] = filter_data['peg_ttm_peers_industry'] \
-        #     * filter_data['growth_est_curr_year_stock_trend'] * filter_data['eps_est_next_year_avg']
-
-        # # HANDLE VALUTATIONS
-        # filter_data['price_est_forward_pe'] = filter_data['eps_est_next_year_avg'] * filter_data['pe_forward_peers_industry']
-        # filter_data['price_est_ttm_pe'] = filter_data['eps_est_curr_year_avg'] * filter_data['pe_ttm_peers_industry']
-        # filter_data['price_est_ttm_peg'] = (filter_data['peg_ttm_peers_industry'] * filter_data['growth_est_curr_year_stock_trend']) \
-        #     * filter_data['pe_ttm_peers_industry']
-            
-        # filter_data['test_curr'] = filter_data['pe_ttm'] / filter_data['growth_est_curr_year_stock_trend']
-        # filter_data['test_next'] = filter_data['pe_ttm'] / filter_data['growth_est_next_year_stock_trend']
-
-        # filter_data['test_growth'] = filter_data['pe_ttm'] / filter_data['peg_ttm']
-    
     def _get_margins_of_safety(self, fundamentals, charts, info):
         data = pd.DataFrame(columns=['margin_of_safety', 'margin_of_safety_volatility', 'margin_of_safety_deviation'])
         if not 'yearly' in fundamentals: return data
