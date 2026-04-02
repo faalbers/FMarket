@@ -42,9 +42,6 @@ class Analysis():
         industries.index = pd.to_datetime(industries.index, unit='s')
         industries.index.name = 'date'
 
-        # # add peers data
-        # filter_data = self.__add_peers_data(filter_data)
-
         return filter_data, sectors, industries, industries_sector
 
     def get_chart(self):
@@ -183,49 +180,40 @@ class Analysis():
         for category, market_cap_weights_category in market_cap_weights.items():
             for category_name, category_weight in market_cap_weights_category.items():
                 category_data = filter_data_params[filter_data_params.index.isin(category_weight.index)].copy()
-                category_data[category_weight.name] = category_weight.loc[category_data.index]
-                for param in filter_data_params.columns:
-                    param_data = category_data[[param, category_weight.name]].dropna()
-                    if param_data.empty: continue
-                    
-                    # normalize sum to 1.0
-                    weight_sum = param_data[category_weight.name].sum()
-                    weight_mult = 1.0 / weight_sum
-                    param_data[category_weight.name] = param_data[category_weight.name] * weight_mult
+                category_data_median = category_data.median()
+                category_data_count = category_data.count()
+                
+                category_data_median.name = 'median'
+                results = category_data_median.to_frame()
+                results['count'] = category_data_count
+                
+                symbols = filter_data[filter_data[category] == category_name].index
+                for param, values in results.iterrows():
+                    param_name = '%s_peers_%s' % (param, category)
+                    if param_name not in filter_data_new:
+                        filter_data_new[param_name] = {}
+                    filter_data_new[param_name].update({symbol: values['median'] for symbol in symbols})
+                    param_name = '%s_peers_%s_count' % (param, category)
+                    if param_name not in filter_data_new:
+                        filter_data_new[param_name] = {}
+                    filter_data_new[param_name].update({symbol: values['count'] for symbol in symbols})
 
-                    # get weighted growth
-                    param_weighted = param_data[param] * param_data[category_weight.name]
-                    param_weighted_volatility = param_weighted.std() / abs(param_weighted.mean())
-                    # param_median = param_weighted.median() * param_weighted.shape[0]
-                    param_weighted = param_weighted.sum()
-
-                    param_weighted_name = '%s_peers_%s' % (param, category)
-                    
-                    symbols = filter_data[filter_data[category] == category_name].index
-                    
-                    param_weighted = {symbol: param_weighted for symbol in symbols}
-                    if not param_weighted_name in filter_data_new:
-                        filter_data_new[param_weighted_name] = param_weighted
-                    else:
-                        filter_data_new[param_weighted_name].update(param_weighted)
-                    
-                    param_weighted_count = {symbol: param_data.shape[0] for symbol in symbols}
-                    if not param_weighted_name+'_count' in filter_data_new:
-                        filter_data_new[param_weighted_name+'_count'] = param_weighted_count
-                    else:
-                        filter_data_new[param_weighted_name+'_count'].update(param_weighted_count)
-
-                    param_weighted_volatility = {symbol: param_weighted_volatility for symbol in symbols}
-                    if not param_weighted_name+'_volatility' in filter_data_new:
-                        filter_data_new[param_weighted_name+'_volatility'] = param_weighted_volatility
-                    else:
-                        filter_data_new[param_weighted_name+'_volatility'].update(param_weighted_volatility)
-
-
-        # put it all in a dataframe
         filter_data_new = pd.DataFrame(filter_data_new)
         filter_data_new.index.name = 'symbol'
-        
+
+        # make difference between peers and original data
+        for param in peers_params:
+            category_columns = ['%s_peers_%s' % (param, category) for category in market_cap_weights.keys()]
+            category_params = filter_data_new[filter_data_new.columns[filter_data_new.columns.isin(category_columns)]]
+            if category_params.empty: continue
+
+            param_data = filter_data_params.loc[category_params.index, param]
+            diff = (param_data - category_params.T).T
+            diff_percent = (diff / category_params.abs()) * 100.0
+            diff.rename(columns={c: c+'_diff' for c in diff.columns}, inplace=True)
+            diff_percent.rename(columns={c: c+'_diff_%' for c in diff_percent.columns}, inplace=True)
+            filter_data_new = pd.concat([filter_data_new, diff, diff_percent], axis=1)
+            
         print(str(ftime.now_local - start_chunk).split('days')[-1])
         start_chunk = ftime.now_local
 
@@ -233,7 +221,6 @@ class Analysis():
 
         print('done')
         print('total: ', str(ftime.now_local - start).split('days')[-1])
-
 
     def __get_market_cap_weights(self, industries_sector=pd.DataFrame(), threshold=0.01):
         # get info with sector
