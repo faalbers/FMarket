@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from ..analysis_params import Analysis_Params
 from idlelib.tooltip import Hovertip
+import webbrowser
 
 from .analysis_charts_gui import Analysis_Charts_GUI
 from .analysis_dividends_gui import Analysis_Dividends_GUI
@@ -12,6 +13,10 @@ from .analysis_fundamentals_gui import Analysis_Fundamentals_GUI
 from .analysis_news_gui import Analysis_News_GUI
 
 class Analysis_Selection_GUI(tk.Toplevel):
+    http_links = {
+        'Yahoo Finance': 'https://finance.yahoo.com/quote/%s',
+        'Finviz': 'https://finviz.com/quote.ashx?t=%s&p=d',
+    }
     def __init__(self, parent, selection_data):
         super().__init__(parent)
 
@@ -48,9 +53,7 @@ class Analysis_Selection_GUI(tk.Toplevel):
         tk.Button(frame_bottom_actions, text='News', command=self.news).pack(side='left')
         tk.Button(frame_bottom_actions, text='Go', command=self.go_site).pack(side='right')
         http_links = [
-            'Yahoo Finance Chart',
-            'Yahoo Finance Compare',
-            # 'Etrade',
+            'Yahoo Finance',
             'Finviz',
         ]
         self.http_link = tk.StringVar()
@@ -120,7 +123,9 @@ class Analysis_Selection_GUI(tk.Toplevel):
         Analysis_News_GUI(self, symbols)
     
     def go_site(self):
-        pass
+        for symbol in self.frame_data.get_symbols():
+            url = self.http_links[self.http_link.get()] % symbol
+            webbrowser.open(url, new=1)
 
 class Frame_Data_Tree(tk.Frame):
     def __init__(self, parent, data):
