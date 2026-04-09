@@ -8,6 +8,9 @@ from ...utils import FTime
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
+# TODO: check this oout
+# https://lightweight-charts-python.readthedocs.io/en/latest/
+
 class Analysis_Charts_GUI(Analysis_Compare_GUI):
     def __init__(self, parent, symbols):
         super().__init__(parent, symbols)

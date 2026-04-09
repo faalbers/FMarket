@@ -15,7 +15,8 @@ from .analysis_news_gui import Analysis_News_GUI
 class Analysis_Selection_GUI(tk.Toplevel):
     http_links = {
         'Yahoo Finance': 'https://finance.yahoo.com/quote/%s',
-        'Finviz': 'https://finviz.com/quote.ashx?t=%s&p=d',
+        'Finviz Quote': 'https://finviz.com/quote.ashx?t=%s&p=d',
+        'Finviz Screener': 'https://finviz.com/screener.ashx?v=110&t=%s',
     }
     def __init__(self, parent, selection_data):
         super().__init__(parent)
@@ -52,10 +53,7 @@ class Analysis_Selection_GUI(tk.Toplevel):
         tk.Button(frame_bottom_actions, text='Fundamentals', command=self.fundamentals).pack(side='left')
         tk.Button(frame_bottom_actions, text='News', command=self.news).pack(side='left')
         tk.Button(frame_bottom_actions, text='Go', command=self.go_site).pack(side='right')
-        http_links = [
-            'Yahoo Finance',
-            'Finviz',
-        ]
+        http_links = list(self.http_links)
         self.http_link = tk.StringVar()
         self.http_link.set(http_links[0])
         tk.OptionMenu(frame_bottom_actions, self.http_link, *http_links).pack(side='right')
@@ -123,9 +121,16 @@ class Analysis_Selection_GUI(tk.Toplevel):
         Analysis_News_GUI(self, symbols)
     
     def go_site(self):
-        for symbol in self.frame_data.get_symbols():
-            url = self.http_links[self.http_link.get()] % symbol
+        http_link = self.http_link.get()
+        symbols = self.frame_data.get_symbols()
+        if http_link == 'Finviz Screener':
+            symbols = ','.join(symbols)
+            url = self.http_links[http_link] % symbols
             webbrowser.open(url, new=1)
+        else:
+            for symbol in symbols:
+                url = self.http_links[http_link] % symbol
+                webbrowser.open(url, new=1)
 
 class Frame_Data_Tree(tk.Frame):
     def __init__(self, parent, data):
