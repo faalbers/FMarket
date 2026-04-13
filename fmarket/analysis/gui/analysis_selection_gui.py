@@ -4,6 +4,7 @@ import json
 import numpy as np
 import pandas as pd
 from ..analysis_params import Analysis_Params
+from ...utils import Settings
 from idlelib.tooltip import Hovertip
 import webbrowser
 
@@ -20,6 +21,7 @@ class Analysis_Selection_GUI(tk.Toplevel):
     }
     def __init__(self, parent, selection_data):
         super().__init__(parent)
+        self.settings = Settings()
 
         # reset index and sort columns
         self.data = selection_data.reset_index()
@@ -63,38 +65,36 @@ class Analysis_Selection_GUI(tk.Toplevel):
         if len(params) == 0:
             messagebox.showinfo('Save Params', 'No params to save')
         else:
-            file = filedialog.asksaveasfile(initialdir='settings/selections/params', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='w')
+            file = filedialog.asksaveasfile(initialdir='settings/psel', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='w')
             if file != None:
-                json.dump(params, file, indent=4)
+                self.settings.set_psel_file(file, params)
+                # json.dump(params, file, indent=4)
                 file.close()
 
     def load_param_selection(self):
         file = filedialog.askopenfile(initialdir='settings/selections/params', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='r')
         if file != None:
-            params = file.read()
-            file.close()
-            params = json.loads(params)
+            params = self.settings.get_psel_file(file)
             self.frame_data.set_params(params)
 
     def save_symbols_selection(self):
         tree_selection = self.frame_data.get_tree_selection()
-        if len(tree_selection) == 0:
+        if tree_selection.shape[0] == 0:
             messagebox.showinfo('Save Symbols Selection', 'No symbols to save')
         else:
-            file = filedialog.asksaveasfile(initialdir='settings/selections/symbols', filetypes=[('SELECTION', '*.ssel')], defaultextension='.ssel', mode='w')
+            file = filedialog.asksaveasfile(initialdir='settings/ssel', filetypes=[('SELECTION', '*.ssel')], defaultextension='.ssel', mode='w')
             if file != None:
-                data_text = ''
-                selection = []
-                for sel in tree_selection:
-                    selection.append(sel['symbol'])
-                    data_text += '\n%s\n' % sel['symbol']
-                    data_text += '  %s\n' % sel['name']
-                    data_text += '  %s: %s\n' % (sel['sector'], sel['industry'])
-                data_path = 'data/symbols/%s.txt' % file.name.split('/')[-1].split('.')[0]
-                with open(data_path, 'w') as data_file:
-                    data_file.write(data_text)
-                print(selection)
-                json.dump(tree_selection, file, indent=4)
+                # data_text = ''
+                # selection = []
+                # for sel in tree_selection:
+                #     selection.append(sel['symbol'])
+                #     data_text += '\n%s\n' % sel['symbol']
+                #     data_text += '  %s\n' % sel['name']
+                #     data_text += '  %s: %s\n' % (sel['sector'], sel['industry'])
+                # data_path = 'data/symbols/%s.txt' % file.name.split('/')[-1].split('.')[0]
+                # with open(data_path, 'w') as data_file:
+                #     data_file.write(data_text)
+                self.settings.set_ssel_file(file, tree_selection)
                 file.close()
 
     def load_symbols_selection(self):
@@ -338,11 +338,15 @@ class Frame_Tree(tk.Frame):
         return symbols
 
     def get_tree_selection(self):
-        tree_selection = []
-        for selected_item in self.tree.selection():
-            # data = self.tree.item(selected_item, 'values')
-            values = {column:self.tree.set(selected_item, column) for column in self.tree['columns']}
-            tree_selection.append(values)
-        # tree_selection = pd.DataFrame(tree_selection)
-        # tree_selection.set_index('symbol', inplace=True)
+        selection = self.tree.selection()
+        if len(selection) == 0:
+            tree_selection =  pd.DataFrame()
+        else:
+            tree_selection = []
+            for selected_item in selection:
+                # data = self.tree.item(selected_item, 'values')
+                values = {column:self.tree.set(selected_item, column) for column in self.tree['columns']}
+                tree_selection.append(values)
+            tree_selection = pd.DataFrame(tree_selection)
+            tree_selection.set_index('symbol', inplace=True)
         return tree_selection

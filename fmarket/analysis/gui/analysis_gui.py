@@ -2,13 +2,16 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from ..analysis import Analysis
 from .analysis_selection_gui import Analysis_Selection_GUI
-from ...utils import Playbooks
+from ...utils import Playbooks, Settings
 import json
 import pandas as pd
 
 class Analysis_GUI(tk.Tk):
-    def __init__(self, symbols=[], selection=None, update_cache=False):
+    def __init__(self, symbols=[], ssel=None, update_cache=False):
         super().__init__()
+        self.settings = Settings()
+        if not isinstance(ssel, type(None)):
+            symbols = sorted(self.settings.get_ssel(ssel).index)
         self.set_filter_data(symbols, update_cache)
         # analysis = Analysis(symbols)
         # self.filter_data = analysis.get_filter_data(update_cache=update_cache)
@@ -79,13 +82,11 @@ class Analysis_GUI(tk.Tk):
         
     def load_symbols_selection(self):
         self.disable_window()
-        file = filedialog.askopenfile(initialdir='settings/selections/symbols', filetypes=[('FILTER', '*.ssel')], defaultextension='.ssel', mode='r')
-        # TODO: make this a util
+        file = filedialog.askopenfile(initialdir='settings/ssel', filetypes=[('FILTER', '*.ssel')], defaultextension='.ssel', mode='r')
         if file != None:
-            symbols = file.read()
+            symbols = self.settings.get_ssel_file(file)
             file.close()
-            symbols = json.loads(symbols)
-            symbols = sorted(pd.DataFrame(symbols)['symbol'])
+            symbols = sorted(symbols.index)
             self.set_filter_data(symbols)
             self.title('Market Analysis: %s symbols' % self.filter_data.shape[0])
         self.enable_window()
@@ -97,17 +98,15 @@ class Analysis_GUI(tk.Tk):
         else:
             file = filedialog.asksaveasfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='w')
             if file != None:
-                json.dump(filters, file, indent=4)
-                # pickle.dump(filters, file, protocol=pickle.HIGHEST_PROTOCOL)
+                self.settings.set_filt_file(file, filters)
                 file.close()
                 Playbooks().make()
     
     def load_filters(self):
-        file = filedialog.askopenfile(initialdir='settings/filters', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='r')
+        file = filedialog.askopenfile(initialdir='settings/filt', filetypes=[('FILTER', '*.filt')], defaultextension='.filt', mode='r')
         if file != None:
-            filters = file.read()
+            filters = self.settings.get_filt_file(file)
             file.close()
-            filters = json.loads(filters)
             self.reset_frame_filters()
             self.frame_filters.set_filters(filters)
     
