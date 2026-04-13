@@ -107,8 +107,49 @@ class FTime:
         return pd.Timestamp(**arguments).tz_localize('US/Eastern')
     
     @property
+    def last_market_date(self):
+        def last_market_date_recurse(date):
+            week_day = calendar.weekday(date.year, date.month, date.day)
+            if week_day > 4:
+                date = self.get_offset(date, days=4 - week_day)
+            if date.date() in holidays.US():
+                date = self.get_offset(date, days=-1)
+                date = last_market_date_recurse(date)
+            return date
+        
+        last_date = self.now_ny.normalize()
+        last_date = last_market_date_recurse(last_date)
+        
+        return last_date
+
+    @property
+    def next_market_date(self):
+        def next_market_date_recurse(date):
+            week_day = calendar.weekday(date.year, date.month, date.day)
+            if week_day > 4:
+                date = self.get_offset(date, days=7 - week_day)
+            if date.date() in holidays.US():
+                date = self.get_offset(date, days=1)
+                date = next_market_date_recurse(date)
+            return date
+        
+        next_date = self.now_ny.normalize()
+        next_date = next_market_date_recurse(next_date)
+
+        return next_date
+
+    @property
+    def next_market_open_date(self):
+        return self.get_date_ny('%s 09:00:00' % str(self.next_market_date.date()))
+    
+    @property
+    def next_market_close_date(self):
+        return self.get_date_ny('%s 16:00:00' % str(self.next_market_date.date()))
+
+    @property
     def is_market_open(self):
         now_ny = self.now_ny
         is_market_day = not (now_ny.date() in holidays.US()) and (calendar.weekday(self.now_ny.year, self.now_ny.month, self.now_ny.day) < 5)
         is_market_hours = now_ny.hour >= 9 and now_ny.hour < 17 # give it a bit of padding
         return (is_market_day and is_market_hours)
+

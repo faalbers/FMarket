@@ -68,6 +68,17 @@ class Catalog():
                 ],
             },
         },
+        'info_stock': {
+            YahooF_Info: {
+                'info': [
+                    ['shortName', 'name'],
+                    ['quoteType', 'type'],
+                    ['sectorDisp', 'sector'],
+                    ['industryDisp', 'industry'],
+                    ['country', 'country'],
+                ],
+            },
+        },
         'news': {
             Polygon_News: {
                 'news_polygon': [
@@ -101,6 +112,10 @@ class Catalog():
                     
                     # ['pegRatio', 'peg_forward'], # only one symbol with data
                     ['trailingPegRatio', 'peg_forward'],
+                    
+                    ['averageAnalystRating', 'rating'],
+                    ['morningStarOverallRating', 'morningstar_rating'],
+                    ['morningStarRiskRating', 'morningstar_risk_rating'],
                 ],
             },
         },

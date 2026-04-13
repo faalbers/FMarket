@@ -7,7 +7,7 @@ import json
 import pandas as pd
 
 class Analysis_GUI(tk.Tk):
-    def __init__(self, symbols=[], update_cache=False):
+    def __init__(self, symbols=[], selection=None, update_cache=False):
         super().__init__()
         self.set_filter_data(symbols, update_cache)
         # analysis = Analysis(symbols)
@@ -80,6 +80,7 @@ class Analysis_GUI(tk.Tk):
     def load_symbols_selection(self):
         self.disable_window()
         file = filedialog.askopenfile(initialdir='settings/selections/symbols', filetypes=[('FILTER', '*.ssel')], defaultextension='.ssel', mode='r')
+        # TODO: make this a util
         if file != None:
             symbols = file.read()
             file.close()
