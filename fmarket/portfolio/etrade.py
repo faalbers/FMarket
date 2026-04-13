@@ -41,11 +41,11 @@ class Etrade():
         
         # add etrade API data
         
-        # self.__set_session()
-        # accounts = self.__get_accounts()
+        self.__set_session()
+        accounts = self.__get_accounts()
         # storage.save(accounts, 'etrade_accounts')            
-        # self.__close_session()
-        accounts = storage.load('etrade_accounts')
+        self.__close_session()
+        # accounts = storage.load('etrade_accounts')
     
         for account_id, account_data in accounts.items():
             data = {
@@ -218,7 +218,6 @@ class Etrade():
         webbrowser.open(authorize_url, new=1)
 
         code = input("Enter Etrade CODE: ")
-        print(code)
 
         self.session = etrade.get_auth_session(request_token,
             request_token_secret,
@@ -256,7 +255,6 @@ class Etrade():
                 accounts[account_id] = {'info': account}
 
         for account_id, account_data in accounts.items():
-            print(account_id)
             account_id_key = account_data['info']['accountIdKey']
 
             # get portfolio

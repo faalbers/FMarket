@@ -21,17 +21,45 @@ class Portfolio:
 
     def get_broker(self, name):
         if name in self.brokers:
-            return self.brokers[name]
+            raise ValueError(f'Broker {name} does not exist')
+        return self.brokers[name]
 
-    def test(self):
-        for broker_name, broker in self.brokers.items():
-            print(broker_name)
-            # account_ids = broker.get_account_ids()
-            # print(account_ids)
-            # print(broker.get_account('151827600'))
-            for account_id, account in broker.accounts.items():
-                print(account_id)
+    def get_account_ids(self, broker_name=None):
+        if isinstance(broker_name, type(None)):
+            account_ids = []
+            for broker_name, broker in self.brokers.items():
+                account_ids += broker.get_account_ids()
+            return account_ids
+        else:
+            if broker_name in  self.brokers:
+                return self.brokers[broker_name].get_account_ids()
+            else:
+                raise ValueError(f'Broker {broker_name} does not exist')
 
+    def get_accounts(self, broker_name=None):
+        if isinstance(broker_name, type(None)):
+            accounts = {}
+            for broker_name, broker in self.brokers.items():
+                accounts.update(broker.get_accounts())
+            return accounts
+        else:
+            if broker_name in self.brokers:
+                return self.brokers[broker_name].get_accounts()
+            else:
+                raise ValueError(f'Broker {broker_name} does not exist')
+
+    def get_symbols(self, broker_name=None):
+        symbols = set()
+        if isinstance(broker_name, type(None)):
+            for broker_name, broker in self.brokers.items():
+                symbols.update(broker.get_symbols())
+            return sorted(symbols)
+        else:
+            if broker_name in self.brokers:
+                return self.brokers[broker_name].get_symbols()
+            else:
+                raise ValueError(f'Broker {broker_name} does not exist')
+    
     def make_quicken_prices(self, date = None, add_symbols = []):
         ftime = FTime()
         symbols = set()

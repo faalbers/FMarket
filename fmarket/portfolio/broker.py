@@ -20,3 +20,12 @@ class Broker:
     def get_account(self, id):
         if id in self.accounts:
             return self.accounts[id]
+
+    def get_accounts(self):
+        return self.accounts
+    
+    def get_symbols(self):
+        symbols = set()
+        for account_id, account in self.accounts.items(): 
+            symbols.update(account.get_symbols())
+        return sorted(symbols)
