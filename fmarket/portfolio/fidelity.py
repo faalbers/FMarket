@@ -67,7 +67,6 @@ class Fidelity():
                 keep_columns = [v for v in rename_columns]
                 transactions = transactions[keep_columns]
                 transactions.rename(columns=rename_columns, inplace=True)
-                # transactions['action'] = transactions['description']
                 transactions['action'] = None
                 for action, action_rename in self.transaction_rename.items():
                     actions_found = transactions['description'].str.startswith(action)
@@ -82,7 +81,14 @@ class Fidelity():
                     data[account_id]['transactions'] = pd.concat([data[account_id]['transactions'], transactions])
 
         for account_id, account_data in data.items():
-            # sort by transaction dates and create
-            account_data['transactions'] = account_data['transactions'].sort_values('date')
-            account_data['transactions'].reset_index(drop=True, inplace=True)
+            # sort by transaction dates and create id
+            transactions = account_data['transactions'].sort_values('date')
+            # HACK: hack for now
+            transactions['id'] = transactions['date'] +\
+                transactions['amount'].replace(np.nan, 0).astype(int) +\
+                transactions['quantity'].replace(np.nan, 0).astype(int) +\
+                transactions['price'].replace(np.nan, 0).astype(int)
+            transactions['id'] = transactions['id'].astype(str)
+            transactions.set_index('id', inplace=True)
+            account_data['transactions'] = transactions
             Account(account_id, data=account_data)

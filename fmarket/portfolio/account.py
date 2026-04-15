@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from ..database import Database
+from ..utils import FTime
 
 class Account:
     def __init__(self, id, description=None, data=None):
@@ -25,15 +26,12 @@ class Account:
     
     def get_positions(self):
         positions = {
-            'positions': self.positions,
+            'positions': self.__get_positions(),
             'history': {}
         }
         symbols = self.transactions['security_symbol'].unique()
         for symbol in symbols:
             transactions = self.transactions[self.transactions['security_symbol'] == symbol]
-            # if symbol == '912797GG6':
-            #     print(self.id)
-            #     print(transactions)
 
             history = transactions[['date', 'amount', 'quantity']].copy()
             is_dividend = transactions['action'].isin(['dividend', 'dividend qualified'])
@@ -50,16 +48,24 @@ class Account:
             history = history.groupby(history.index).sum()
 
             positions['history'][symbol] = history
-            
-            # history = history.cumsum().ffill()
-            # history = history.groupby(history.index).last()
 
+        return positions
+
+    def __get_positions(self):
+        now = FTime().now_naive
+        positions = self.positions.sort_values('cost', ascending=False).copy()
+        positions['alloc_%'] = ((positions['cost'] / positions['cost'].sum()) * 100).round(2)
+        if 'date' in positions.columns:
+            positions['years'] = ((now - positions['date']).dt.days / 365.0).round(2)
+        positions.rename(columns={'price': 'price_buy'}, inplace=True)
+        columns = [c for c in ['alloc_%', 'cost', 'price_buy', 'quantity', 'years'] if c in positions.columns]
+        positions = positions[columns]
         return positions
 
     def __update_account(self, data):
         db = Database('portfolio')
         transactions = data.pop('transactions')
-        db.table_write('transactions_%s' % data['id'], transactions, replace_table=True)
+        db.table_write('transactions_%s' % data['id'], transactions, update=False)
 
         positions = data.pop('positions')
         db.table_write('positions_%s' % data['id'], positions, replace_table=True)
@@ -68,20 +74,6 @@ class Account:
         account.set_index('id', inplace=True)
         db.table_write('accounts', account, update=False)
 
-        # self.broker = data['broker']
-        # self.description = data['description']
-        # self.transactions = transactions
-        # self.positions = positions
-
-        # accounts = db.table_read('accounts')
-        # if self.id in accounts.index:
-        #     info = accounts.loc[self.id]
-        #     self.broker = info['broker']
-        #     self.description = info['description']
-        #     self.transactions = db.table_read('transactions_%s' % self.id)
-        #     self.positions = db.table_read('positions_%s' % self.id)
-        # else:
-        #     raise Exception('Account id not found: %s' % self.id)
 
     def __fix_quantity_out(self):
         # fix quantity out bug

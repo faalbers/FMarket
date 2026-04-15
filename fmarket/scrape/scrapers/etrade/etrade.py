@@ -18,8 +18,8 @@ class Etrade():
         
         etrade = OAuth1Service(
             name="etrade",
-            consumer_key=KEYS['ETRADE']['KEY'],
-            consumer_secret=KEYS['ETRADE']['SECRET'],
+            consumer_key=KEYS['ETRADE']['KEYFRANK'],
+            consumer_secret=KEYS['ETRADE']['SECRETFRANK'],
             request_token_url="https://api.etrade.com/oauth/request_token",
             access_token_url="https://api.etrade.com/oauth/access_token",
             authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",

@@ -1,7 +1,7 @@
 from .broker import Broker
 from .account import Account
 from ..database import Database
-import glob, os
+import psutil
 import pandas as pd
 import numpy as np
 from rauth import OAuth1Service
@@ -33,7 +33,8 @@ class Etrade():
         'Contribution': 'unknown',
     }
 
-    def __init__(self, update=False):
+    def __init__(self, key_name, update=False):
+        self.key_name = key_name
         if update: self.__update_etrade()
 
     def __update_etrade(self):
@@ -43,9 +44,9 @@ class Etrade():
         
         self.__set_session()
         accounts = self.__get_accounts()
-        # storage.save(accounts, 'etrade_accounts')            
+        # storage.save(accounts, 'etrade_accounts_%s' % self.key_name)            
         self.__close_session()
-        # accounts = storage.load('etrade_accounts')
+        # accounts = storage.load('etrade_accounts_%s' % self.key_name)
     
         for account_id, account_data in accounts.items():
             data = {
@@ -108,104 +109,28 @@ class Etrade():
             transactions = transactions.infer_objects()
             transactions = transactions.replace(0.0, np.nan)
             transactions.sort_values(by='date', inplace=True)
-            transactions.reset_index(drop=True, inplace=True)
+            transactions.index.name = 'id'
+
             data['transactions'] = transactions
 
-            # add account
+            # create account in database
             Account(account_id, data=data)
-        
-        # temporarely add csv accounts
-        csv_files = glob.glob('data/etrade/test/*.csv')
-        data = {}
-        for csv_file in csv_files:
-            file_type, account_id = os.path.basename(csv_file).split('.')[0].split('_')
-            csv_data = pd.read_csv(csv_file, names=[chr(x+65) for x in range(13)])
 
-            if not account_id in data:
-                data[account_id] = {
-                    'broker': 'Etrade',
-                    'id': account_id,
-                }
-            if file_type == 'PortfolioDownload':
-                data[account_id]['description'] = csv_data.loc[2, 'A'].split(' -')[0]
-            
-            # handle positions
-            if file_type == 'PortfolioDownload':
-                positions_index = csv_data[csv_data['A'] == 'Symbol'].index[1]
-                positions = csv_data.loc[positions_index:]
-                positions = positions.dropna(axis=1, how='all')
-                positions = positions.set_axis(positions.iloc[0], axis=1)
-                positions = positions.loc[:positions.index[positions['Symbol'] == 'CASH'][0]]
-                positions = positions.iloc[1:-1]
-                rename_columns = {
-                    'Symbol': 'symbol',
-                    'Quantity': 'quantity',
-                    'Price Paid $': 'price',
-                }
-                keep_columns = [v for v in rename_columns]
-                positions = positions[keep_columns]
-                positions.rename(columns=rename_columns, inplace=True)
-                positions[['quantity', 'price']] = positions[['quantity', 'price']].astype(float)
-                positions = positions.infer_objects()
-                positions.set_index('symbol', inplace=True)
-
-                data[account_id]['positions'] = positions
-
-            # handle transactions
-            elif file_type == 'DownloadTxnHistory':
-                transactions_index = csv_data[csv_data['A'] == 'Activity/Trade Date'].index[0]
-                transactions = csv_data.loc[transactions_index:]
-                transactions_index = transactions[transactions['A'].str.startswith('For all accounts')].index[0]
-                transactions = transactions.loc[:transactions_index-1]
-                transactions = transactions.dropna(axis=1, how='all')
-                transactions = transactions.set_axis(transactions.iloc[0], axis=1)
-                transactions = transactions.iloc[1:]
-                rename_columns = {
-                    'Transaction Date': 'date',
-                    'Description': 'description',
-                    'Activity Type': 'action',
-                    'Amount $': 'amount',
-                    'Quantity #': 'quantity',
-                    'Price $': 'price',
-                    'Symbol': 'security_symbol',
-                }
-                keep_columns = [v for v in rename_columns]
-                transactions = transactions[keep_columns]
-                transactions.rename(columns=rename_columns, inplace=True)
-                transactions['date'] =  pd.to_datetime(transactions['date'], format='%m/%d/%y').apply(lambda x: int(x.timestamp()))
-                transactions['action'] = transactions['action'].apply(lambda x: self.transaction_rename[x])
-                float_columns = ['amount', 'quantity', 'price']
-                transactions[float_columns] = transactions[float_columns].astype(float)
-                transactions = transactions.infer_objects()
-                transactions.sort_values(by='date', inplace=True)
-                transactions.reset_index(drop=True, inplace=True)
-
-                # reasses values
-                is_dividend_reinvest = (transactions['action'] == 'dividend') & (transactions['amount'] < 0)
-                transactions.loc[is_dividend_reinvest, 'action'] = 'reinvest'
-                transactions.loc[transactions['action'] == 'dividend', 'action'] = 'dividend'
-                is_dividend_reinvest = (transactions['action'] == 'dividend qualified') & (transactions['amount'] < 0)
-                transactions.loc[is_dividend_reinvest, 'action'] = 'dividend qualified reinvest'
-                transactions.loc[transactions['action'] == 'dividend qualified', 'action'] = 'dividend qualified receive'
-                transactions = transactions[transactions['action'] != 'unknown']
-
-                data[account_id]['transactions'] = transactions
-            
-        for account_id, account_data in data.items():
-            Account(account_id, data=account_data)
-
-        # else:
-        #     db = Database('portfolio')
-        #     accounts = db.table_read('accounts')
-        #     accounts = accounts[accounts['broker'] == 'Etrade']
-        #     for account_id in accounts.index:
-        #         self.accounts.append(Account(account_id))
-
+    @staticmethod
+    def __close_browser():
+        for proc in psutil.process_iter(['name']):
+            if proc.info['name'] == 'AvastBrowser.exe':
+                input('Close Avast Browser !')
+                Etrade.__close_browser()
+                break
+    
     def __set_session(self):
+        Etrade.__close_browser()
+        
         etrade = OAuth1Service(
             name="etrade",
-            consumer_key=KEYS['ETRADE']['KEY'],
-            consumer_secret=KEYS['ETRADE']['SECRET'],
+            consumer_key=KEYS['ETRADE']['KEY%s' % self.key_name],
+            consumer_secret=KEYS['ETRADE']['SECRET%s' % self.key_name],
             request_token_url="https://api.etrade.com/oauth/request_token",
             access_token_url="https://api.etrade.com/oauth/access_token",
             authorize_url="https://us.etrade.com/e/t/etws/authorize?key={}&token={}",
@@ -215,6 +140,7 @@ class Etrade():
             params={"oauth_callback": "oob", "format": "json"})
 
         authorize_url = etrade.authorize_url.format(etrade.consumer_key, request_token)
+        print('Login as Etrade user %s !' % self.key_name)
         webbrowser.open(authorize_url, new=1)
 
         code = input("Enter Etrade CODE: ")
