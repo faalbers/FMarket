@@ -1,5 +1,9 @@
 import json
 import pandas as pd
+import smtplib
+import ssl
+from email.message import EmailMessage
+from data.keys import KEYS
 
 class Settings:
     def __init__(self):
@@ -53,3 +57,30 @@ class Settings:
     def set_psel_file(self, file, data):
         json.dump(data, file, indent=4)
 
+
+    def email_ssel(self, ssel, email_adress, subject):
+        main_params = ['name', 'sector', 'industry']
+        data = self.get_ssel(ssel)
+        email_body = ''
+        for symbol, symbol_data in data.iterrows():
+            email_body += '\n%s:\n' % symbol
+            for param in main_params:
+                email_body += '  %s: %s\n' % (param, symbol_data[param])
+            other_columns = sorted(set(symbol_data.index).difference(set(main_params)))
+            for param in other_columns:
+                email_body += '  %s: %s\n' % (param, symbol_data[param])
+
+        msg = EmailMessage()
+        msg.set_content(email_body)
+        msg['Subject'] = subject
+        msg['From'] = "chalbers@gmail.com"
+        msg['To'] = email_adress
+
+        context = ssl.create_default_context()
+        context.verify_flags &= ~ssl.VERIFY_X509_STRICT
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
+            server.login("chalbers@gmail.com", KEYS['GMAIL']['KEY'])
+            server.send_message(msg)
+
+        print("Email sent successfully!")
