@@ -68,11 +68,10 @@ class Analysis_Selection_GUI(tk.Toplevel):
             file = filedialog.asksaveasfile(initialdir='settings/psel', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='w')
             if file != None:
                 self.settings.set_psel_file(file, params)
-                # json.dump(params, file, indent=4)
                 file.close()
 
     def load_param_selection(self):
-        file = filedialog.askopenfile(initialdir='settings/selections/params', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='r')
+        file = filedialog.askopenfile(initialdir='settings/psel', filetypes=[('SELECTION', '*.psel')], defaultextension='.psel', mode='r')
         if file != None:
             params = self.settings.get_psel_file(file)
             self.frame_data.set_params(params)

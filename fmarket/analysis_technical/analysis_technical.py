@@ -9,7 +9,7 @@ from ..utils import FTime
 class Analysis_Technical():
     def __init__(self, symbols):
         self.last_market_date = FTime().last_market_date
-        self.__get_charts(symbols)
+        self.__set_charts(symbols)
 
     def get_uptrends(self):
         trends = {}
@@ -115,8 +115,8 @@ class Analysis_Technical():
         chart.index = chart.index.tz_localize(None)
         self.charts[symbol] = chart
     
-    def __get_charts(self, symbols):
-        last_market_date = FTime().last_market_date
+    def __set_charts(self, symbols):
+        # last_market_date = FTime().last_market_date
         symbols = sorted(set(symbols))
         self.charts = {}
         for symbol in symbols:
