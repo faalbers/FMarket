@@ -29,3 +29,15 @@ class Broker:
         for account_id, account in self.accounts.items(): 
             symbols.update(account.get_symbols())
         return sorted(symbols)
+    
+    def get_report(self):
+        accounts = {}
+        for account_id, account in self.accounts.items():
+            positions = account.get_positions()
+            accounts[account_id] = {
+                'id': account_id,
+                'description': account.description,
+                'positions': positions['positions'],
+                'history': positions['history'],
+            }
+        return accounts

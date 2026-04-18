@@ -27,11 +27,62 @@ class Account:
     def get_positions(self):
         positions = {
             'positions': self.__get_positions(),
-            'history': {}
+            'history': self.__get_history(),
         }
+
+        return positions
+
+    def __get_history(self):
+        history_symbols = {}
+        symbols = self.transactions['security_symbol'].unique()
+        for symbol in symbols:
+            transactions = self.transactions[self.transactions['security_symbol'] == symbol].copy()
+            # if self.id == '151827600' and symbol == 'CWEN':
+            #     print(transactions)
+
+            has_no_quantity = transactions['quantity'].isna() | (transactions['quantity'] == 0)
+            
+            # handle quantity history
+            transactions_quantity = transactions[~has_no_quantity]
+            history_quantity = transactions_quantity[['date', 'amount', 'quantity']].copy()
+            is_reinvest = transactions_quantity['action'] == 'reinvest'
+            history_quantity.loc[is_reinvest, 'reinvest'] = history_quantity.loc[is_reinvest, 'amount']
+            history_quantity.set_index('date', inplace=True)
+            history_quantity.index = history_quantity.index.date
+            history_quantity.dropna(axis=0, how='all', inplace=True)
+            history_quantity.rename(columns={'amount': 'cost'}, inplace=True)
+            history_quantity = history_quantity.groupby(history_quantity.index).sum()
+
+
+            # handle no quantity history
+            transactions_no_quantity = transactions[has_no_quantity]
+            history_no_quantity = transactions_no_quantity[['date', 'amount']].copy()
+            is_dividend = transactions_no_quantity['action'].isin(['dividend', 'dividend qualified'])
+            history_no_quantity.loc[is_dividend, 'dividend'] = history_no_quantity.loc[is_dividend, 'amount']
+            is_cap_gain = transactions_no_quantity['action'].str.startswith('cap gain')
+            history_no_quantity.loc[is_cap_gain, 'cap_gain'] = history_no_quantity.loc[is_cap_gain, 'amount']
+            history_no_quantity.set_index('date', inplace=True)
+            history_no_quantity.index = history_no_quantity.index.date
+            history_no_quantity.dropna(axis=0, how='all', inplace=True)
+            history_no_quantity = history_no_quantity[['dividend', 'cap_gain']]
+            history_no_quantity = history_no_quantity.groupby(history_no_quantity.index).sum()
+
+            # merge them together
+            history_quantity = history_quantity.merge(history_no_quantity, how='outer', left_index=True, right_index=True)
+            history_quantity.replace(np.nan, 0, inplace=True)
+            history_quantity.sort_index(inplace=True)
+
+            history_symbols[symbol] = history_quantity
+
+        return history_symbols
+        
+    def __get_history_old(self):
+        history_symbols = {}
         symbols = self.transactions['security_symbol'].unique()
         for symbol in symbols:
             transactions = self.transactions[self.transactions['security_symbol'] == symbol]
+            if self.id == '151827600' and symbol == 'MVRXX':
+                print(transactions)
 
             history = transactions[['date', 'amount', 'quantity']].copy()
             is_dividend = transactions['action'].isin(['dividend', 'dividend qualified'])
@@ -47,9 +98,9 @@ class Account:
             history.dropna(axis=0, how='all', inplace=True)
             history = history.groupby(history.index).sum()
 
-            positions['history'][symbol] = history
+            history_symbols[symbol] = history
 
-        return positions
+        return history_symbols
 
     def __get_positions(self):
         now = FTime().now_naive
