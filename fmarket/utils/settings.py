@@ -1,7 +1,5 @@
-import json
+import json, os, smtplib, ssl
 import pandas as pd
-import smtplib
-import ssl
 from email.message import EmailMessage
 from data.keys import KEYS
 
@@ -9,8 +7,22 @@ class Settings:
     def __init__(self):
         pass
 
+    @staticmethod
+    def __find_path(path):
+        prefix_paths = [
+            'settings/ssel',
+            'settings',
+            '',
+        ]
+        for prefix_path in prefix_paths:
+            search_path = '%s/%s.ssel' % (prefix_path, path)
+            if os.path.exists('%s/%s.ssel' % (prefix_path, path)):
+                return search_path
+        raise ValueError('File path not found for: %s' % path)
+    
     def get_ssel(self, ssel):
-        with open('settings/ssel/%s.ssel' % ssel, 'r') as file:
+        path = Settings.__find_path(ssel)
+        with open(path, 'r') as file:
             return self.get_ssel_file(file)
     
     def get_ssel_file(self, file):
@@ -20,7 +32,8 @@ class Settings:
         return symbols
     
     def set_ssel(self, ssel, data):
-        with open('settings/ssel/%s.ssel' % ssel, 'w') as file:
+        path = Settings.__find_path(ssel)
+        with open(path, 'w') as file:
             self.set_ssel_file(file, data)
 
     def set_ssel_file(self, file, data):
@@ -28,7 +41,8 @@ class Settings:
         json.dump(data, file, indent=4)
 
     def get_filt(self, filt):
-        with open('settings/filt/%s.filt' % filt, 'r') as file:
+        path = Settings.__find_path(filt)
+        with open(path, 'r') as file:
             return self.get_filt(file)
     
     def get_filt_file(self, file):
@@ -36,14 +50,16 @@ class Settings:
         return filters
     
     def set_filt(self, filt, data):
-        with open('settings/filt/%s.filt' % filt, 'w') as file:
+        path = Settings.__find_path(filt)
+        with open(path, 'w') as file:
             self.set_filt_file(file, data)
 
     def set_filt_file(self, file, data):
         json.dump(data, file, indent=4)
 
     def get_psel(self, psel):
-        with open('settings/psel/%s.psel' % psel, 'r') as file:
+        path = Settings.__find_path(psel)
+        with open(path, 'r') as file:
             return self.get_psel_file(file)
 
     def get_psel_file(self, file):
@@ -51,7 +67,8 @@ class Settings:
         return parmeters
 
     def set_psel(self, psel, data):
-        with open('settings/psel/%s.psel' % psel, 'w') as file:
+        path = Settings.__find_path(psel)
+        with open(path, 'w') as file:
             self.set_psel_file(file, data)
 
     def set_psel_file(self, file, data):
