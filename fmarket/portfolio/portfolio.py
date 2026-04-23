@@ -1,3 +1,4 @@
+from ..globals import *
 from .etrade import Etrade
 from .fidelity import Fidelity
 from .broker import Broker
@@ -147,9 +148,11 @@ class Portfolio:
         symbols = sorted(symbols)
 
         # get all yfinance data
-        # yfinance_data = self.__get_yfinance_data(symbols)
-        # storage.save(yfinance_data, 'portfolio_report_yf')
-        yfinance_data = storage.load('portfolio_report_yf')
+        if USE_CACHE_DATA:
+            yfinance_data = storage.load('portfolio_report_yf')
+        else:
+            yfinance_data = self.__get_yfinance_data(symbols)
+            storage.save(yfinance_data, 'portfolio_report_yf')
 
         # get last Close price
         price = pd.Series(name='price')

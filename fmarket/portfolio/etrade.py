@@ -1,3 +1,5 @@
+from ..globals import *
+from data.keys import KEYS
 from .broker import Broker
 from .account import Account
 from ..database import Database
@@ -7,7 +9,6 @@ import numpy as np
 from rauth import OAuth1Service
 import webbrowser
 from ratelimit import limits, sleep_and_retry
-from data.keys import KEYS
 from ..utils import FTime, storage
 
 
@@ -41,12 +42,13 @@ class Etrade():
         ftime = FTime()
         
         # add etrade API data
-        
-        self.__set_session()
-        accounts = self.__get_accounts()
-        # storage.save(accounts, 'etrade_accounts_%s' % self.key_name)            
-        self.__close_session()
-        # accounts = storage.load('etrade_accounts_%s' % self.key_name)
+        if USE_CACHE_DATA:
+            accounts = storage.load('etrade_accounts_%s' % self.key_name)
+        else:
+            self.__set_session()
+            accounts = self.__get_accounts()
+            storage.save(accounts, 'etrade_accounts_%s' % self.key_name)            
+            self.__close_session()
     
         for account_id, account_data in accounts.items():
             data = {
