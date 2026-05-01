@@ -77,14 +77,11 @@ class Portfolio:
         symbols = set()
         for broker_name, broker in self.brokers.items():
             for account_id, account in broker.accounts.items():
-                symbols.update(account.get_position_symbols())
+                symbols.update(account.get_symbols())
         symbols.update(add_symbols)
         symbols = sorted(symbols)
 
-        Scrape_GUI(symbols, settings=['yahoof_chart'])
-
-        tickers = Tickers(symbols)
-        charts = tickers.get_chart()
+        charts = self.__get_yfinance_chart(symbols)
 
         if isinstance(date, type(None)):
             date = ftime.get_offset(ftime.now_naive, months=-1)
@@ -94,9 +91,11 @@ class Portfolio:
 
         dftn = pd.Series()
         for symbol, chart in charts.items():
+            if chart.empty: continue
+            chart.index = chart.index.tz_localize(None)
             price = chart[:date]
             if price.empty: continue
-            price = price.iloc[-1]['adj_close']
+            price = price.iloc[-1]['Adj Close']
             dftn[symbol] = price
     
         dftn = dftn.dropna().round(2)
@@ -449,4 +448,17 @@ class Portfolio:
         data = {}
         for symbol in symbols:
             data[symbol] = self.__get_yfinance_data_symbol(symbol)
+        return data
+
+    @sleep_and_retry
+    @limits(calls=100, period=60) # 6000 calls /hour , two calls in this function
+    def __get_yfinance_chart_symbol(self, symbol):
+        ticker = yf.Ticker(symbol)
+        return ticker.history(period='10y',auto_adjust=False)
+
+
+    def __get_yfinance_chart(self, symbols):
+        data = {}
+        for symbol in symbols:
+            data[symbol] = self.__get_yfinance_chart_symbol(symbol)
         return data
