@@ -4,7 +4,7 @@ from .fidelity import Fidelity
 from .broker import Broker
 from ..database import Database
 from ..tickers import Tickers
-from ..utils import FTime, storage
+from ..utils import FTime, storage, Plot
 from ..report import Report
 from ..vault.catalog import Catalog
 from ..scrape import Scrape_GUI
@@ -13,10 +13,6 @@ import numpy as np
 import yfinance as yf
 import logging
 from ratelimit import limits, sleep_and_retry
-import matplotlib.pyplot as plt
-
-
-from pprint import pp
 
 class Portfolio:
     
@@ -27,6 +23,75 @@ class Portfolio:
             Etrade('AMY',update=update)
             Fidelity(update=update)
         self.__get_portfolio()
+
+    def test_account_report(self):
+        for broker_name, broker in self.brokers.items():
+            for account_id, account in broker.get_accounts().items():
+                if account_id != '151827600': continue
+                positions = account.get_positions()
+                print(positions['positions'])
+                print(positions['history']['ASML'])
+
+    def test_portfolio_data(self):
+        for broker_name, broker in self.brokers.items():
+            print()
+            print(broker_name)
+            for account_id, account in broker.get_accounts().items():
+                print()
+                print(account_id)
+                print(account.description)
+                continue
+                # print(account.get_transactions())
+                for param, data in account.get_positions().items():
+                    print()
+                    print(param)
+                    if param == 'history':
+                        for symbol, data in data.items():
+                            print()
+                            print(symbol)
+                            print(data.head(10))
+                    else:
+                        print(data.head(10))
+
+    def test_report_data(self):
+        report_data = self.report_data()
+        for broker_name, broker_report in report_data.items():
+            print()
+            print(broker_name)
+            for account_id, account_report in broker_report.items():
+                print()
+                print(account_id)
+                for data_name, data in account_report.items():
+                    print()
+                    print(data_name)
+                    if data_name == 'history':
+                        for symbol, chart in data.items():
+                            print()
+                            print(symbol)
+                            # print(chart)
+                    elif data_name == 'history_chart':
+                        for symbol, chart in data.items():
+                            print()
+                            print(symbol)
+                            # print(chart)
+                    elif data_name == 'compare_chart':
+                        for param, chart in data.items():
+                            print()
+                            print(param)
+                            # print(chart)
+                    elif data_name == 'history_dividends_yield':
+                        test = pd.DataFrame(data, index = pd.date_range(data.index[0], data.index[-1], freq="D"))
+                        # test = test.merge(data, how='left', left_index=True, right_index=True).ffill()
+                        print(test)
+                        # for param, chart in data.items():
+                        #     print()
+                        #     print(param)
+                        #     # print(chart)
+                    else:
+                        pass
+                        # print(data)
+                break
+            break
 
     def get_broker_names(self):
         return sorted(self.brokers)
@@ -113,7 +178,14 @@ class Portfolio:
             'sectorDisp': 'sector',
             'industryDisp': 'industry',
             'country': 'country',
+            'dividendRate': 'dividend_rate',
+            'dividendYield': 'dividend_yield',
+            'dividendDate': 'dividend_date',
         }
+        # etrade_quote
+        # dividend
+        # dividendPayableDate
+
         keep_positions_columns = [
             'alloc_%',
             'cost',
@@ -163,7 +235,7 @@ class Portfolio:
         # parse through all accounts
         for broker_name, broker_report in broker_reports.items():
             for account_id, account_report in broker_report.items():
-                # description = account_report['description']
+                description = account_report['description']
                 # title_account = '%s: %s (%s)' % (broker_name, description, account_id)
                 positions = account_report['positions']
                 history = account_report['history']
@@ -171,23 +243,27 @@ class Portfolio:
                 symbols_account.update(history)
 
                 history_chart = account_report['history_chart'] = {} # chart for each symbol
+                history_dividends_yield = pd.DataFrame() # dividend history for each symbol
+                history_cap_gains = pd.DataFrame() # dividcap gain history for each symbol
                 compare_chart = account_report['compare_chart'] = {} # comparing chart parameters with all symbols
                 history_chart_total_merged = pd.DataFrame() # to create total chart
 
                 # go through all possible symbols in transactions history 
                 for symbol, history_symbol in history.items():
-                    # title_symbol = '%s: %s: %s (%s)' % (symbol, broker_name, description, account_id)
+                    title_symbol = '%s: %s: %s (%s)' % (symbol, broker_name, description, account_id)
 
                     if not symbol in yfinance_data: continue
 
-                    work_data = history_symbol.cumsum()
-                    
+                    distributions = history_symbol[['dividend', 'cap_gain']].copy()
+                    work_data = history_symbol.drop(columns=['dividend', 'cap_gain']).cumsum()
+                    distributions = distributions.merge(-work_data['cost'].shift(1).bfill(), how='outer', left_index=True, right_index=True)
+
                     is_in_position = symbol in positions.index
                     if is_in_position:
                         cost = -work_data['cost'].iloc[-1]
                         is_same_quantity = abs(positions.loc[symbol, 'quantity'] - work_data.iloc[-1]['quantity']) < 0.1
                         if not is_same_quantity:
-                            # print('HISTORY INCOMPLETE !: %s' % title_symbol)
+                            print('HISTORY INCOMPLETE !: %s' % title_symbol)
                             continue
                     else:
                         # dont use the ones with ending quantity no zero, since there are not in positions anymore
@@ -195,6 +271,16 @@ class Portfolio:
                             # print('HISTORY INCOMPLETE !: %s' % title_symbol)
                             continue
                         cost = -work_data['cost'].iloc[-2]
+
+                    # merge dividend yield history
+                    dividends_yield = ((distributions['dividend'] / distributions['cost']) * 100).cumsum()
+                    dividends_yield.name = symbol
+                    history_dividends_yield = history_dividends_yield.merge(dividends_yield, how='outer', left_index=True, right_index=True)
+
+                    # # merge cap gain history
+                    # cap_gains = work_data['cap_gain']
+                    # cap_gains.name = symbol
+                    # history_cap_gains = history_cap_gains.merge(work_data['cap_gain'], how='outer', left_index=True, right_index=True)
 
                     # create history chart
                     history_chart_symbol = Portfolio.__get_history_chart(history_symbol, yfinance_data[symbol]['chart'], cost)
@@ -214,6 +300,12 @@ class Portfolio:
                             param_series.name = symbol
                             compare_chart[param] = compare_chart[param].merge(param_series, how='outer', left_index=True, right_index=True)
 
+                # finish up distributions history
+                history_dividends_yield = history_dividends_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
+                account_report['history_dividends_yield'] = history_dividends_yield
+                # history_cap_gains = history_cap_gains.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
+                # account_report['history_cap_gains'] = history_cap_gains
+                
                 # create history chart total
                 account_report['history_chart_total'] = pd.DataFrame()
                 total_params = ['cost', 'value', 'dividend', 'cap_gain']
@@ -231,7 +323,7 @@ class Portfolio:
                         history_chart_total['gain_%'] = (history_chart_total['gain'] / -history_chart_total['cost'].iloc[-1]) * 100
                         account_report['history_chart_total'] = history_chart_total
 
-                # create info
+                # create info and dividends
                 info = {}
                 for symbol in symbols_account:
                     info_all = yfinance_data[symbol]['info']
@@ -242,6 +334,11 @@ class Portfolio:
                     info[symbol] = info_symbol
                 info = pd.DataFrame(info).T
                 info.index.name = 'symbol'
+                if 'dividend_date' in info.columns:
+                    dividends = info[['dividend_date', 'dividend_rate', 'dividend_yield']].copy()
+                    dividends['dividend_date'] = pd.to_datetime(info['dividend_date'], unit='s').dt.strftime('%Y-%m-%d')
+                    info.drop(columns=['dividend_rate', 'dividend_yield', 'dividend_date'], inplace=True)
+                    account_report['dividends'] = dividends
                 account_report['info'] = info
 
                 # fix positions cost and alloc_%
@@ -278,6 +375,20 @@ class Portfolio:
                 positions_total = positions.sum()[['cost', 'value', 'gain', 'gain_%', 'dividend', 'cap_gain']]
                 positions_total['gain_%'] = (positions_total['gain'] / positions_total['cost']) * 100
                 account_report['positions_total'] = positions_total
+
+                # fix dividends
+                if 'dividends' in account_report:
+                    dividends = account_report['dividends'].copy()
+                    dividends = dividends.dropna(how='all')
+                    dividends['dividend_date'] = dividends['dividend_date'].replace(np.nan, '')
+                    dividends = dividends[dividends.index.isin(positions.index)]
+                    dividends['dividend_rate'] = dividends['dividend_rate'] * positions.loc[dividends.index, 'quantity']
+                    dividends.rename(columns={
+                        'dividend_date': 'date',
+                        'dividend_rate': 'yearly_rate',
+                        'dividend_yield': 'yearly_yield',
+                        }, inplace=True)
+                    account_report['dividends'] = dividends
         
         return broker_reports
 
@@ -317,28 +428,7 @@ class Portfolio:
 
         return history_full
 
-    @staticmethod
-    def __dataframe_plot(df, title, ylabel='', line=0.0, figsize=(11, 6), dpi=100):
-        df = df.dropna(axis=1, how='all')
-        fig, ax = plt.subplots(figsize=figsize, dpi=dpi)
-        df.plot(ax=ax, title=title, legend=False)
-        for line2d in ax.get_lines():
-            label = line2d.get_label()
-            color = line2d.get_color()
-            last_value = df[label].dropna()
-            annotate_x = last_value.index[-1]
-            annotate_y = last_value.values[-1]
-            ax.annotate(label, xy=(annotate_x, annotate_y),
-                fontsize=8, fontweight='bold', xytext=(2, 2), textcoords='offset points', color=color)
-        ax.grid(True, linestyle='--', linewidth=0.5, color='gray')
-        # ax.axhline(y=line, color='black', alpha=0.5, linestyle='--', linewidth=1)
-        ax.set_ylabel(ylabel, fontweight='bold')
-        ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, _: '{:.0f}'.format(x)))
-        plt.tight_layout()
-        return fig
-    
     def history_graphs(self):
-        plt.style.use('tableau-colorblind10')
         report_data = self.report_data()
         for broker_name, broker_report in report_data.items():
             for account_id, account_report in broker_report.items():
@@ -361,11 +451,11 @@ class Portfolio:
                     plot_chart = plot_chart.ffill(limit_area='inside')
                     print(plot_chart)
                     
-                    self.__dataframe_plot(plot_chart, title_account, ylabel='gain %')
-                    plt.show()
+                    plot = Plot(grid='monthly')
+                    plot.plot(plot_chart, title=title_account, ylabel='%')
+                    plot.show()
 
     def report(self):
-        plt.style.use('tableau-colorblind10')
         report_data = self.report_data()
         report_path = 'Z:\\AALBERS-CHEN ASSETS\\Portfolio'
         r = Report(report_path, landscape=True)
@@ -378,7 +468,12 @@ class Portfolio:
                 positions_total = account_report['positions_total']
                 positions_symbols = list(positions.index)
                 info = account_report['info']
+                has_dividends = 'dividends' in account_report
+                if has_dividends:
+                    dividends = account_report['dividends']
                 compare_chart = account_report['compare_chart']
+                history_dividends_yield = account_report['history_dividends_yield']                
+                # history_cap_gains = account_report['history_cap_gains']                
                 
                 r.add_paragraph(title, style=r.get_style('Heading2'))
 
@@ -411,12 +506,40 @@ class Portfolio:
                 r.add_page_break()
 
                 if 'gain_%' in compare_chart:
+                    r.add_paragraph('GAINS:', style=r.get_style('Heading5'))
                     plot_data = compare_chart['gain_%']
                     plot_data = plot_data[[c for c in plot_data.columns if c in positions.index]].copy()
                     plot_data.replace(0, np.nan, inplace=True)
+                    
+                    plot = Plot(figsize=(11, 6.5), grid='monthly')
+                    plot.plot(plot_data, title=title, ylabel='gain %')
 
-                    fig = self.__dataframe_plot(plot_data, title, ylabel='gain %', figsize=(11, 7), dpi=300)
-                    r.add_plot_figure(fig)
+                    r.add_plot_figure(plot.fig())
+                    r.add_page_break()
+                
+                if has_dividends:
+                    r.add_paragraph(title, style=r.get_style('Heading2'))
+                    r.add_paragraph('DIVIDENDS: (as reported and expected)', style=r.get_style('Heading5'))
+                    
+                    symbols_dividends = [s for s in positions_symbols if s in dividends.index]
+                    dividends_table = dividends.loc[symbols_dividends]
+                    dividends_table.reset_index(inplace=True)
+                    dividends_table.sort_values(by='yearly_yield', ascending=False, inplace=True)
+                    dividends_table['quarterly_rate'] = dividends_table['yearly_rate'] / 4
+                    dividends_table[['quarterly_rate', 'yearly_rate', 'yearly_yield']] = dividends_table[['quarterly_rate', 'yearly_rate', 'yearly_yield']].map('{:,.2f}'.format)
+                    r.add_table(dividends_table, allign='LEFT', symbol_link=True, group=True)
+                    
+                    plot_data = history_dividends_yield
+                    plot_data = plot_data[[c for c in plot_data.columns if c in positions.index]].copy()
+                    plot_data = pd.DataFrame(plot_data, index = pd.date_range(plot_data.index[0], plot_data.index[-1], freq="D")).ffill()
+                    
+                    plot = Plot(figsize=(11, 4.5), grid='monthly')
+                    plot.plot(plot_data, title='Dividends Yield', ylabel='%')
+
+                    r.add_plot_figure(plot.fig(), group=True)
+                    
+                    r.add_group()
+
                     r.add_page_break()
 
         r.build()
