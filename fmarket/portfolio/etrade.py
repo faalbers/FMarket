@@ -38,6 +38,7 @@ class Etrade():
         self.key_name = key_name
         if update: self.__update_etrade()
 
+    
     def __update_etrade(self):
         ftime = FTime()
         
@@ -217,3 +218,14 @@ class Etrade():
                     do_next = False
 
         return accounts
+
+    def test_database(self):
+        accounts = storage.load('etrade_accounts_%s' % self.key_name)
+        for account_id, account_data in accounts.items():
+            if account_id != '151827600': continue
+            for transaction_id, transaction_data in account_data['transactions'].items():
+                brokerage = transaction_data['brokerage']
+                product = brokerage['product']
+                if len(product) == 0: continue
+                if product['symbol'] != 'NVMI': continue
+                print(transaction_id)
