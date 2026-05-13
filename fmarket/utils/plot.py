@@ -63,7 +63,7 @@ class Plot:
         if  title and not ax.get_title(): ax.set_title(title)
         if  ylabel and not ax.get_ylabel(): ax.set_ylabel(ylabel, fontweight='bold')
     
-    def scatter(self, df, position=(0,0), title='', size=20, alpha=1.0):
+    def scatter(self, df, position=(0,0), title=None, size=20, alpha=1.0):
         ax = self.__get_axis(position)
 
         # reset indices if needed
@@ -75,6 +75,34 @@ class Plot:
         for column in df.columns:
             ax.scatter(df.index, df[column], label=column, s=size, alpha=alpha)
         
+        if  not ax.get_title() and title: ax.set_title(title)
+
+    def pie(self, s, position=(0,0), title=None):
+        ax = self.__get_axis(position)
+        # ax.pie(s.values, labels=s.index, autopct="%1.1f%%", startangle=90)
+        total = s.sum()
+        wedges, texts, autotexts = ax.pie(
+            s.values,
+            # labels=s.index,
+            autopct=lambda pct: f"{pct:.1f}%",
+            # autopct=lambda pct: '%.2f%% \n$ %.2f' % (pct, pct * total / 100),
+            textprops={
+                "fontsize": 8,
+                "color": "white"
+            },
+            startangle=90,
+            # labeldistance=0.55,   # move labels inside
+            # pctdistance=0.75      # move percentages inside
+            )
+        ax.legend(
+            wedges,
+            ['%s: %.2f' % (label, value) for label, value in s.items()],
+            title="Holdings",
+            bbox_to_anchor=(1, 1),
+            )
+        ax.axis('off')
+        ax.set_position([-0.2, 0.0, 1.0, 1.0])
+
         if  not ax.get_title() and title: ax.set_title(title)
 
     def show(self):
@@ -97,7 +125,7 @@ class Plot:
         else:
             self.__axis_settings(self.__axs)
 
-        plt.tight_layout()
+        # plt.tight_layout()
 
     def __axis_settings(self, ax):
         # set grid
