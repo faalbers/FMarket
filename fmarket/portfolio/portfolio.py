@@ -163,6 +163,8 @@ class Portfolio:
         dftn.to_csv(path, header=False, sep=',', encoding='utf-8')
 
     def report_data(self):
+        # retieve all data to create report
+        
         # info params to retrieve
         info_params = {
             'shortName': 'name',
@@ -178,6 +180,7 @@ class Portfolio:
         # trailingAnnualDividendRate
         # trailingAnnualDividendYield
 
+        # positions table params
         keep_positions_columns = [
             'alloc_%',
             'cost',
@@ -201,7 +204,7 @@ class Portfolio:
         yflogger.disabled = True
         yflogger.propagate = False
 
-        # get all symbols so we can get carts and info from yfinance
+        # get all symbols so we can get charts and info from yfinance
         symbols = set()
         for broker_name, broker in self.brokers.items():
             broker_reports[broker_name] = broker.get_report()
@@ -227,27 +230,46 @@ class Portfolio:
         # parse through all accounts
         for broker_name, broker_report in broker_reports.items():
             for account_id, account_report in broker_report.items():
-                description = account_report['description']
-                # title_account = '%s: %s (%s)' % (broker_name, description, account_id)
-                positions = account_report['positions']
-                history = account_report['history']
+                # retrieve report data from accounts to add data to
+                description = account_report['description'] # account description
+                positions = account_report['positions'] # positions in account
+                history = account_report['history'] # transactions history
+                
+                # get all symbols in account
                 symbols_account = set(positions.index)
                 symbols_account.update(history)
 
+                # create charts for account
                 history_chart = account_report['history_chart'] = {} # chart for each symbol
+
+                # initialize dividends and cap gain yield for all symbols in account
                 history_dividends_yield = pd.DataFrame() # dividend history for each symbol
                 history_cap_gains_yield = pd.DataFrame() # cap gain history for each symbol
+                
+                # initialize parameters compare chart
                 compare_chart = account_report['compare_chart'] = {} # comparing chart parameters with all symbols
+
+                # initialize chart for all symbols
                 history_chart_total_merged = pd.DataFrame() # to create total chart
 
                 # go through all possible symbols in transactions history 
                 for symbol, history_symbol in history.items():
+                    if not symbol in yfinance_data: continue # continue if no info to add on symbol
+                    
+                    # symbol title info
                     title_symbol = '%s: %s: %s (%s)' % (symbol, broker_name, description, account_id)
 
-                    if not symbol in yfinance_data: continue
-
+                    # initialize distributions and do cumulative sum
                     distributions = history_symbol[['dividend', 'cap_gain']].copy()
+
+                    # add cost we we can calulate yield
                     work_data = history_symbol.drop(columns=['dividend', 'cap_gain']).cumsum()
+
+                    # get negative value of cost and get value before today, sinse we want to calculate yield on
+                    # what the cost was before we add the dividend and cap gain
+                    # bfill to fill gaps
+                    # then merge it to distributions
+                    cost = -work_data['cost'].shift(1).bfill()
                     distributions = distributions.merge(-work_data['cost'].shift(1).bfill(), how='outer', left_index=True, right_index=True)
 
                     is_in_position = symbol in positions.index
