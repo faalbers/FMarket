@@ -79,14 +79,6 @@ class Portfolio:
                             print()
                             print(param)
                             # print(chart)
-                    elif data_name == 'history_dividends_yield':
-                        test = pd.DataFrame(data, index = pd.date_range(data.index[0], data.index[-1], freq="D"))
-                        # test = test.merge(data, how='left', left_index=True, right_index=True).ffill()
-                        print(test)
-                        # for param, chart in data.items():
-                        #     print()
-                        #     print(param)
-                        #     # print(chart)
                     else:
                         pass
                         # print(data)
@@ -182,9 +174,9 @@ class Portfolio:
             'dividendYield': 'dividend_yield',
             'dividendDate': 'dividend_date',
         }
-        # etrade_quote
-        # dividend
-        # dividendPayableDate
+        # fiveYearAvgDividendYield
+        # trailingAnnualDividendRate
+        # trailingAnnualDividendYield
 
         keep_positions_columns = [
             'alloc_%',
@@ -244,7 +236,7 @@ class Portfolio:
 
                 history_chart = account_report['history_chart'] = {} # chart for each symbol
                 history_dividends_yield = pd.DataFrame() # dividend history for each symbol
-                history_cap_gains = pd.DataFrame() # dividcap gain history for each symbol
+                history_cap_gains_yield = pd.DataFrame() # cap gain history for each symbol
                 compare_chart = account_report['compare_chart'] = {} # comparing chart parameters with all symbols
                 history_chart_total_merged = pd.DataFrame() # to create total chart
 
@@ -277,6 +269,11 @@ class Portfolio:
                     dividends_yield.name = symbol
                     history_dividends_yield = history_dividends_yield.merge(dividends_yield, how='outer', left_index=True, right_index=True)
 
+                    # merge cap gain yield history
+                    cap_gains_yield = ((distributions['cap_gain'] / distributions['cost']) * 100).cumsum()
+                    cap_gains_yield.name = symbol
+                    history_cap_gains_yield = history_cap_gains_yield.merge(cap_gains_yield, how='outer', left_index=True, right_index=True)
+
                     # # merge cap gain history
                     # cap_gains = work_data['cap_gain']
                     # cap_gains.name = symbol
@@ -303,8 +300,9 @@ class Portfolio:
                 # finish up distributions history
                 history_dividends_yield = history_dividends_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
                 account_report['history_dividends_yield'] = history_dividends_yield
-                # history_cap_gains = history_cap_gains.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
-                # account_report['history_cap_gains'] = history_cap_gains
+
+                history_cap_gains_yield = history_cap_gains_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
+                account_report['history_cap_gains_yield'] = history_cap_gains_yield
                 
                 # create history chart total
                 account_report['history_chart_total'] = pd.DataFrame()
@@ -334,10 +332,13 @@ class Portfolio:
                     info[symbol] = info_symbol
                 info = pd.DataFrame(info).T
                 info.index.name = 'symbol'
-                if 'dividend_date' in info.columns:
-                    dividends = info[['dividend_date', 'dividend_rate', 'dividend_yield']].copy()
-                    dividends['dividend_date'] = pd.to_datetime(info['dividend_date'], unit='s').dt.strftime('%Y-%m-%d')
-                    info.drop(columns=['dividend_rate', 'dividend_yield', 'dividend_date'], inplace=True)
+                if 'dividend_yield' in info.columns:
+                    dividend_columns = ['dividend_date', 'dividend_rate', 'dividend_yield']
+                    dividend_columns = [c for c in dividend_columns if c in info.columns]
+                    dividends = info[dividend_columns].copy()
+                    if 'dividend_date' in dividends.columns:
+                        dividends['dividend_date'] = pd.to_datetime(dividends['dividend_date'], unit='s').dt.strftime('%Y-%m-%d')
+                    info.drop(columns=dividend_columns, inplace=True)
                     account_report['dividends'] = dividends
                 account_report['info'] = info
 
@@ -380,7 +381,6 @@ class Portfolio:
                 if 'dividends' in account_report:
                     dividends = account_report['dividends'].copy()
                     dividends = dividends.dropna(how='all')
-                    dividends['dividend_date'] = dividends['dividend_date'].replace(np.nan, '')
                     dividends = dividends[dividends.index.isin(positions.index)]
                     dividends['dividend_rate'] = dividends['dividend_rate'] * positions.loc[dividends.index, 'quantity']
                     dividends.rename(columns={
@@ -389,6 +389,23 @@ class Portfolio:
                         'dividend_yield': 'yearly_yield',
                         }, inplace=True)
                     account_report['dividends'] = dividends
+        
+                # get category
+                if not account_report['info'].empty:
+                    info = account_report['info']
+                    info['category'] = 'growth'
+                    info.loc[info['type'] == 'MONEYMARKET', 'category'] = 'income'
+                    if 'dividends' in account_report:
+                        dividends = account_report['dividends']
+                        dividends = dividends[dividends['yearly_yield'] >= 4.0].index
+                        info.loc[dividends, 'category'] = 'income'
+                    
+                    category = positions['cost'].to_frame()
+                    category['category'] = info.loc[positions.index, 'category']
+                    category = category.groupby('category').sum()['cost']
+
+                    # category['category_%'] = (category['cost'] / category['cost'].sum()) * 100.0
+                    account_report['category'] = category
         
         return broker_reports
 
@@ -473,7 +490,7 @@ class Portfolio:
                     dividends = account_report['dividends']
                 compare_chart = account_report['compare_chart']
                 history_dividends_yield = account_report['history_dividends_yield']                
-                # history_cap_gains = account_report['history_cap_gains']                
+                history_cap_gains_yield = account_report['history_cap_gains_yield']
                 
                 r.add_paragraph(title, style=r.get_style('Heading2'))
 
@@ -504,6 +521,14 @@ class Portfolio:
                 r.add_group()
 
                 r.add_page_break()
+
+                r.add_paragraph(title, style=r.get_style('Heading2'))
+                if 'category' in account_report:
+                    plot = Plot(figsize=(11,5))
+                    plot.pie(account_report['category'])
+                    r.add_plot_figure(plot.fig())
+
+                    r.add_page_break()
 
                 if 'gain_%' in compare_chart:
                     r.add_paragraph('GAINS:', style=r.get_style('Heading5'))
@@ -541,6 +566,22 @@ class Portfolio:
                     r.add_group()
 
                     r.add_page_break()
+                
+                if not history_cap_gains_yield.empty:
+                    plot_data = history_cap_gains_yield
+                    plot_data = plot_data[[c for c in plot_data.columns if c in positions.index]].copy()
+
+                    if not plot_data.empty:
+                        r.add_paragraph(title, style=r.get_style('Heading2'))
+                        plot_data = pd.DataFrame(plot_data, index = pd.date_range(plot_data.index[0], plot_data.index[-1], freq="D")).ffill()
+                        
+                        plot = Plot(figsize=(11, 6.5), grid='monthly')
+                        plot.plot(plot_data, title='Capital Gains Yield', ylabel='%')
+
+                        r.add_plot_figure(plot.fig())
+                    
+                        r.add_page_break()
+
 
         r.build()
 
