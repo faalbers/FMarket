@@ -40,36 +40,53 @@ class Account:
         history_symbols = {}
         symbols = self.__transactions['security_symbol'].unique()
         for symbol in symbols:
+            # get all transactions for symbol
             transactions = self.__transactions[self.__transactions['security_symbol'] == symbol].copy()
 
+            # get transaction history with quantity
             has_no_quantity = transactions['quantity'].isna() | (transactions['quantity'] == 0)
-            
-            # handle quantity history
             transactions_quantity = transactions[~has_no_quantity]
             history_quantity = transactions_quantity[['date', 'amount', 'quantity']].copy()
+
+            # add reinvest column
             is_reinvest = transactions_quantity['action'] == 'reinvest'
             history_quantity.loc[is_reinvest, 'reinvest'] = history_quantity.loc[is_reinvest, 'amount']
+
+            # set date as index
             history_quantity.set_index('date', inplace=True)
             history_quantity.index = history_quantity.index.date
+
+            # remove rows where all values are nan
             history_quantity.dropna(axis=0, how='all', inplace=True)
+
+            # rename amount to cost and sum on same dates
             history_quantity.rename(columns={'amount': 'cost'}, inplace=True)
             history_quantity = history_quantity.groupby(history_quantity.index).sum()
 
-
-            # handle no quantity history
+            # get transaction history with no quantity
             transactions_no_quantity = transactions[has_no_quantity]
             history_no_quantity = transactions_no_quantity[['date', 'amount']].copy()
+
+            # get dividends
             is_dividend = transactions_no_quantity['action'].isin(['dividend', 'dividend qualified'])
             history_no_quantity.loc[is_dividend, 'dividend'] = history_no_quantity.loc[is_dividend, 'amount']
+            
+            # get cap gains
             is_cap_gain = transactions_no_quantity['action'].str.startswith('cap gain')
             history_no_quantity.loc[is_cap_gain, 'cap_gain'] = history_no_quantity.loc[is_cap_gain, 'amount']
+
+            # set date as index
             history_no_quantity.set_index('date', inplace=True)
             history_no_quantity.index = history_no_quantity.index.date
+
+            # remove rows where all values are nan
             history_no_quantity.dropna(axis=0, how='all', inplace=True)
+
+            # only keep dividends and cap gains and sum on same dates
             history_no_quantity = history_no_quantity[['dividend', 'cap_gain']]
             history_no_quantity = history_no_quantity.groupby(history_no_quantity.index).sum()
 
-            # merge them together
+            # merge both history together
             history_quantity = history_quantity.merge(history_no_quantity, how='outer', left_index=True, right_index=True)
             history_quantity.replace(np.nan, 0, inplace=True)
             history_quantity.sort_index(inplace=True)
@@ -79,14 +96,22 @@ class Account:
         return history_symbols
         
     def __get_positions(self):
-        now = FTime().now_naive
+        # get positions arranged by cost
         positions = self.__positions.sort_values('cost', ascending=False).copy()
+
+        # calculate allocation based on cost
         positions['alloc_%'] = ((positions['cost'] / positions['cost'].sum()) * 100).round(2)
+        
+        # calculate years we have the positions
         if 'date' in positions.columns:
+            now = FTime().now_naive
             positions['years'] = ((now - positions['date']).dt.days / 365.0).round(2)
+        
+        # set final columns
         positions.rename(columns={'price': 'price_buy'}, inplace=True)
         columns = [c for c in ['alloc_%', 'cost', 'price_buy', 'quantity', 'years'] if c in positions.columns]
         positions = positions[columns]
+        
         return positions
 
     def __update_account(self, data):

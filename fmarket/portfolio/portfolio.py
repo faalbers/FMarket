@@ -180,6 +180,19 @@ class Portfolio:
         # trailingAnnualDividendRate
         # trailingAnnualDividendYield
 
+        # dividends params to retrieve
+        dividends_params = {
+            'dividend_date': 'date',
+            'dividend_yield': 'yearly_yield',
+            'yearly': 'yearly',
+            'quarterly': 'quarterly',
+        }
+        
+        # params that will be compared with history charts
+        compare_params = [
+            'gain_%',
+        ]
+
         # positions table params
         keep_positions_columns = [
             'alloc_%',
@@ -210,7 +223,6 @@ class Portfolio:
             broker_reports[broker_name] = broker.get_report()
             for account_id, account_report in broker_reports[broker_name].items():
                 symbols.update(account_report['positions'].index)
-                symbols.update(account_report['history'])
         symbols = sorted(symbols)
 
         # get all yfinance data
@@ -219,7 +231,7 @@ class Portfolio:
         else:
             yfinance_data = self.__get_yfinance_data(symbols)
             storage.save(yfinance_data, 'portfolio_report_yf')
-
+        
         # get last Close price
         price = pd.Series(name='price')
         for symbol, yfinance_data_symbol in yfinance_data.items():
@@ -235,9 +247,8 @@ class Portfolio:
                 positions = account_report['positions'] # positions in account
                 history = account_report['history'] # transactions history
                 
-                # get all symbols in account
-                symbols_account = set(positions.index)
-                symbols_account.update(history)
+                # get all symbols of positions in account and only handle the ones with yfinance data
+                symbols_account = [s for s in positions.index if s in yfinance_data]
 
                 # create charts for account
                 history_chart = account_report['history_chart'] = {} # chart for each symbol
@@ -253,97 +264,102 @@ class Portfolio:
                 history_chart_total_merged = pd.DataFrame() # to create total chart
 
                 # go through all possible symbols in transactions history 
-                for symbol, history_symbol in history.items():
-                    if not symbol in yfinance_data: continue # continue if no info to add on symbol
+                for symbol in symbols_account:
+                    history_symbol = history[symbol]
                     
                     # symbol title info
                     title_symbol = '%s: %s: %s (%s)' % (symbol, broker_name, description, account_id)
 
-                    # initialize distributions and do cumulative sum
+                    # create cumsum work data
+                    history_cumsum = history_symbol.cumsum()
+
+                    # maque sure the positions quantity and history cumsum quantity are failrly the same
+                    is_same_quantity = abs(positions.loc[symbol, 'quantity'] - history_cumsum.iloc[-1]['quantity']) < 0.1
+                    if not is_same_quantity:
+                        print('HISTORY QUANTITY INCOMPLETE !: %s' % title_symbol)
+                        continue
+
+                    # fix positions cost if needed, so far only seen this in one of Etrade's positions
+                    is_same_cost = abs(positions.loc[symbol, 'cost'] + history_cumsum.iloc[-1]['cost']) < 0.1
+                    if not is_same_cost:
+                        # it seems transactions history cost is more correct then positions cost
+                        positions.loc[symbol, 'cost'] = - history_cumsum.iloc[-1]['cost']
+                        positions.loc[symbol, 'price_buy'] = positions.loc[symbol, 'cost'] / positions.loc[symbol, 'quantity']
+
+
+                    # create history chart
+                    history_chart_symbol = Portfolio.__get_history_chart(history_symbol, yfinance_data[symbol]['chart'])
+                    history_chart[symbol] = history_chart_symbol
+
+                    # merge to history chart total
+                    history_chart_total_merged = history_chart_total_merged.merge(history_chart[symbol],
+                        how='outer', left_index=True, right_index=True, suffixes=('', '_%s' % symbol))
+
+                    # create compare chart for parameters
+                    if not history_chart[symbol].empty:
+                        for param in compare_params:
+                            if not param in compare_chart:
+                                # initialyze empty compare chart
+                                compare_chart[param] = pd.DataFrame()
+                            param_series = history_chart[symbol][param]
+                            param_series.name = symbol
+                            # merge into compare chart for param
+                            compare_chart[param] = compare_chart[param].merge(param_series, how='outer', left_index=True, right_index=True)
+
+                    # initialize distributions and add history cost to calculate yield
                     distributions = history_symbol[['dividend', 'cap_gain']].copy()
 
                     # add cost we we can calulate yield
-                    work_data = history_symbol.drop(columns=['dividend', 'cap_gain']).cumsum()
-
-                    # get negative value of cost and get value before today, sinse we want to calculate yield on
-                    # what the cost was before we add the dividend and cap gain
-                    # bfill to fill gaps
-                    # then merge it to distributions
-                    cost = -work_data['cost'].shift(1).bfill()
-                    distributions = distributions.merge(-work_data['cost'].shift(1).bfill(), how='outer', left_index=True, right_index=True)
-
-                    is_in_position = symbol in positions.index
-                    if is_in_position:
-                        cost = -work_data['cost'].iloc[-1]
-                        is_same_quantity = abs(positions.loc[symbol, 'quantity'] - work_data.iloc[-1]['quantity']) < 0.1
-                        if not is_same_quantity:
-                            print('HISTORY INCOMPLETE !: %s' % title_symbol)
-                            continue
-                    else:
-                        # dont use the ones with ending quantity no zero, since there are not in positions anymore
-                        if work_data['quantity'].iloc[0] < 0 or work_data.shape[0] < 2:
-                            # print('HISTORY INCOMPLETE !: %s' % title_symbol)
-                            continue
-                        cost = -work_data['cost'].iloc[-2]
+                    # get cost before distribution day, sinse we wdant to calculate yield on what the cost was
+                    # before we add the distributions.
+                    # bfill to fill gaps and then merge it to distributions
+                    cost = -history_cumsum['cost'].shift(1).bfill()
+                    distributions = distributions.merge(cost, how='outer', left_index=True, right_index=True)
 
                     # merge dividend yield history
                     dividends_yield = ((distributions['dividend'] / distributions['cost']) * 100).cumsum()
                     dividends_yield.name = symbol
                     history_dividends_yield = history_dividends_yield.merge(dividends_yield, how='outer', left_index=True, right_index=True)
-
+                    
                     # merge cap gain yield history
                     cap_gains_yield = ((distributions['cap_gain'] / distributions['cost']) * 100).cumsum()
                     cap_gains_yield.name = symbol
                     history_cap_gains_yield = history_cap_gains_yield.merge(cap_gains_yield, how='outer', left_index=True, right_index=True)
 
-                    # # merge cap gain history
-                    # cap_gains = work_data['cap_gain']
-                    # cap_gains.name = symbol
-                    # history_cap_gains = history_cap_gains.merge(work_data['cap_gain'], how='outer', left_index=True, right_index=True)
+                # redistribute allocations since we changed some costs
+                positions['alloc_%'] = (positions['cost'] / positions['cost'].sum()) * 100
 
-                    # create history chart
-                    history_chart_symbol = Portfolio.__get_history_chart(history_symbol, yfinance_data[symbol]['chart'], cost)
-                    history_chart[symbol] = history_chart_symbol
-
-                    # add to history chart total positions
-                    if is_in_position:
-                        history_chart_total_merged = history_chart_total_merged.merge(history_chart[symbol],
-                            how='outer', left_index=True, right_index=True, suffixes=('', '_%s' % symbol))
-
-                    # create compare chart
-                    if not history_chart[symbol].empty:
-                        for param in ['gain_%']:
-                            if not param in compare_chart:
-                                compare_chart[param] = pd.DataFrame()
-                            param_series = history_chart[symbol][param]
-                            param_series.name = symbol
-                            compare_chart[param] = compare_chart[param].merge(param_series, how='outer', left_index=True, right_index=True)
-
-                # finish up distributions history
-                history_dividends_yield = history_dividends_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
-                account_report['history_dividends_yield'] = history_dividends_yield
-
-                history_cap_gains_yield = history_cap_gains_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
-                account_report['history_cap_gains_yield'] = history_cap_gains_yield
-                
                 # create history chart total
                 account_report['history_chart_total'] = pd.DataFrame()
                 total_params = ['cost', 'value', 'dividend', 'cap_gain']
+                # get total chart from merged for each symbols based on columns with symbol name in it
                 if not history_chart_total_merged.empty:
                     history_chart_total_merged = history_chart_total_merged.ffill()
                     history_chart_total = []
-                    for column in total_params:
-                        sum_columns = [c for c in history_chart_total_merged.columns if c.startswith(column)]
-                        summed_column = history_chart_total_merged[sum_columns].sum(axis=1)
-                        summed_column.name = column
+                    for param in total_params:
+                        # get all columns that start with same param name
+                        sum_param_columns = [c for c in history_chart_total_merged.columns if c.startswith(param)]
+                        # sum each row to get totals of param
+                        summed_column = history_chart_total_merged[sum_param_columns].sum(axis=1)
+                        summed_column.name = param
                         history_chart_total.append(summed_column)
+                    # put all params totals together in one dataframec
                     history_chart_total = pd.DataFrame(history_chart_total).T
                     if not history_chart_total.empty:
+                        # add gain and gain_% tot total
                         history_chart_total['gain'] = history_chart_total['cost'] + history_chart_total['value']
-                        history_chart_total['gain_%'] = (history_chart_total['gain'] / -history_chart_total['cost'].iloc[-1]) * 100
+                        history_chart_total['gain_%'] = (history_chart_total['gain'] / -history_chart_total['cost']) * 100
                         account_report['history_chart_total'] = history_chart_total
 
-                # create info and dividends
+                # finish up distributions history
+                # replace zero with nans, drop columns where all values are nans
+                # ffill to fill gaps and finally replace all nans with zeroes
+                history_dividends_yield = history_dividends_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
+                account_report['history_dividends_yield'] = history_dividends_yield
+                history_cap_gains_yield = history_cap_gains_yield.replace(0, np.nan).dropna(axis=1, how='all').ffill().replace(np.nan, 0)
+                account_report['history_cap_gains_yield'] = history_cap_gains_yield
+                
+                # create info for symbols
                 info = {}
                 for symbol in symbols_account:
                     info_all = yfinance_data[symbol]['info']
@@ -355,73 +371,75 @@ class Portfolio:
                 info = pd.DataFrame(info).T
                 info.index.name = 'symbol'
                 if 'dividend_yield' in info.columns:
+                    # create dividends info
                     dividend_columns = ['dividend_date', 'dividend_rate', 'dividend_yield']
                     dividend_columns = [c for c in dividend_columns if c in info.columns]
                     dividends = info[dividend_columns].copy()
                     if 'dividend_date' in dividends.columns:
                         dividends['dividend_date'] = pd.to_datetime(dividends['dividend_date'], unit='s').dt.strftime('%Y-%m-%d')
                     info.drop(columns=dividend_columns, inplace=True)
+                    # all columns are still objects
+                    dividends = dividends.infer_objects()
                     account_report['dividends'] = dividends
                 account_report['info'] = info
 
-                # fix positions cost and alloc_%
-                for symbol, position in positions.iterrows():
-                    if not symbol in history_chart: continue
-                    if history_chart[symbol].empty: continue
-                    cost_delta = abs(position['cost'] + history_chart[symbol].iloc[-1]['cost'])
-                    if cost_delta > 0.1:
-                        positions.loc[symbol, 'cost'] = -history_chart[symbol].iloc[-1]['cost']
-                        cost_total = positions['cost'].sum()
-                        positions['alloc_%'] = (positions['cost'] / cost_total) * 100
-                        positions.sort_values('cost', ascending=False, inplace=True)
-
-                    quantity_delta = abs(position['quantity'] - history_chart[symbol].iloc[-1]['quantity'])
-                    if quantity_delta > 0.1:
-                        raise ValueError('position quantity does not match ! broker: %s - account: %s - symbol: %s' % (broker_name,account_id, symbol))
-                
                 # add additional data to positions
+                
+                # add latest price
                 positions = positions.merge(price, how='left', left_index=True, right_index=True)
+                
+                # add value, gain and gain_%
                 positions['value'] = positions['price'] * positions['quantity']
                 positions['gain'] = positions['value'] - positions['cost']
                 positions['gain_%'] = (positions['gain'] / positions['cost']) * 100
+
+                # get dividends and cap gains history  totals and merge them with positions
                 history_merge = pd.DataFrame(columns=['dividend', 'cap_gain'])
-                for symbol, history_symbol in account_report['history'].items():
+                for symbol in symbols_account:
+                    history_symbol = history[symbol]
                     history_merge.loc[symbol] = history_symbol.sum()
                 positions = positions.merge(history_merge, how='left', left_index=True, right_index=True)
+
+                # calculate dividend and cap gain %
                 positions['dividend_%'] = (positions['dividend'] / positions['cost']) * 100
                 positions['cap_gain_%'] = (positions['cap_gain'] / positions['cost']) * 100
+
+                # keep only positions columns and ordered as wel
                 keep_columns = [c for c in keep_positions_columns if c in positions.columns]
                 positions = positions[keep_columns]
                 account_report['positions'] = positions
-
+                
                 # create positions total
                 positions_total = positions.sum()[['cost', 'value', 'gain', 'gain_%', 'dividend', 'cap_gain']]
                 positions_total['gain_%'] = (positions_total['gain'] / positions_total['cost']) * 100
                 account_report['positions_total'] = positions_total
 
-                # fix dividends
+                # clean up dividends and add more data
                 if 'dividends' in account_report:
                     dividends = account_report['dividends'].copy()
+                    # remove positions with no dividends
                     dividends = dividends.dropna(how='all')
-                    dividends = dividends[dividends.index.isin(positions.index)]
-                    dividends['dividend_rate'] = dividends['dividend_rate'] * positions.loc[dividends.index, 'quantity']
-                    dividends.rename(columns={
-                        'dividend_date': 'date',
-                        'dividend_rate': 'yearly_rate',
-                        'dividend_yield': 'yearly_yield',
-                        }, inplace=True)
+                    dividends['yearly'] = dividends['dividend_rate'] * positions.loc[dividends.index, 'quantity']
+                    dividends['quarterly'] = dividends['yearly'] / 4
+                    # keep columns and rename them
+                    dividends_rename = {c:r for c, r in dividends_params.items() if c in dividends.columns}
+                    dividends = dividends[list(dividends_rename)]
+                    dividends.rename(columns=dividends_rename, inplace=True)
                     account_report['dividends'] = dividends
-        
-                # get category
+
+                # get category (growth, income)
                 if not account_report['info'].empty:
                     info = account_report['info']
                     info['category'] = 'growth'
+                    # MONEYMARKET is income
                     info.loc[info['type'] == 'MONEYMARKET', 'category'] = 'income'
                     if 'dividends' in account_report:
+                        # all dividend yields >= 4% are income
                         dividends = account_report['dividends']
                         dividends = dividends[dividends['yearly_yield'] >= 4.0].index
                         info.loc[dividends, 'category'] = 'income'
                     
+                    # create category report by groupin costs by category and summing
                     category = positions['cost'].to_frame()
                     category['category'] = info.loc[positions.index, 'category']
                     category = category.groupby('category').sum()['cost']
@@ -432,7 +450,7 @@ class Portfolio:
         return broker_reports
 
     @staticmethod
-    def __get_history_chart(history, chart, cost):
+    def __get_history_chart(history, chart):
         if chart.empty: return pd.DataFrame()
 
         # get history starting chart
@@ -450,20 +468,19 @@ class Portfolio:
             chart['High'] = chart['High'] * stock_splits
             chart['Low'] = chart['Low'] * stock_splits
         
-        # get cummulative history
+        # get cummulative sum transaction history on price history
         history_full = chart[['Close']].copy()
         # outer since some days the stock markets were closed (like death of Jimmy Carter)
-        history_full = history_full.merge(history, how='outer', left_index=True, right_index=True).replace(np.nan, 0.0).cumsum()
-        history_full['Close'] = chart['Close']
+        history_full = history_full.merge(history, how='outer', left_index=True, right_index=True)
+        history_full = history_full.replace(np.nan, 0.0) # fill the gaps with zeroes
+        history_full = history_full.cumsum() # do cummulative sum for transaction history
+        history_full['Close'] = chart['Close'] # set closing price that is not cummulative
         history_full['Close'] = history_full['Close'].ffill() # for if any outer were added
 
-        # add additional data
+        # add value, gain and gain_%
         history_full['value'] = history_full['Close'] * history_full['quantity']
         history_full['gain'] = history_full['cost'] + history_full['value']
-        if cost == 0:
-            history_full['gain_%'] = 0
-        else:
-            history_full['gain_%'] = (history_full['gain'] / cost) * 100
+        history_full['gain_%'] = (history_full['gain'] / -history_full['cost']) * 100
 
         return history_full
 
@@ -495,6 +512,7 @@ class Portfolio:
                     plot.show()
 
     def report(self):
+        ftime = FTime()
         report_data = self.report_data()
         report_path = 'Z:\\AALBERS-CHEN ASSETS\\Portfolio'
         r = Report(report_path, landscape=True)
@@ -546,7 +564,7 @@ class Portfolio:
 
                 r.add_paragraph(title, style=r.get_style('Heading2'))
                 if 'category' in account_report:
-                    plot = Plot(figsize=(11,5))
+                    plot = Plot(figsize=(13,5))
                     plot.pie(account_report['category'])
                     r.add_plot_figure(plot.fig())
 
@@ -558,7 +576,7 @@ class Portfolio:
                     plot_data = plot_data[[c for c in plot_data.columns if c in positions.index]].copy()
                     plot_data.replace(0, np.nan, inplace=True)
                     
-                    plot = Plot(figsize=(11, 6.5), grid='monthly')
+                    plot = Plot(figsize=(13, 6.5), grid='monthly')
                     plot.plot(plot_data, title=title, ylabel='gain %')
 
                     r.add_plot_figure(plot.fig())
@@ -572,15 +590,25 @@ class Portfolio:
                     dividends_table = dividends.loc[symbols_dividends]
                     dividends_table.reset_index(inplace=True)
                     dividends_table.sort_values(by='yearly_yield', ascending=False, inplace=True)
-                    dividends_table['quarterly_rate'] = dividends_table['yearly_rate'] / 4
-                    dividends_table[['quarterly_rate', 'yearly_rate', 'yearly_yield']] = dividends_table[['quarterly_rate', 'yearly_rate', 'yearly_yield']].map('{:,.2f}'.format)
+                    # format only floats
+                    float_cols = dividends_table.select_dtypes(include=["float"]).columns
+                    dividends_table[float_cols] = dividends_table[float_cols].map('{:,.2f}'.format)
                     r.add_table(dividends_table, allign='LEFT', symbol_link=True, group=True)
                     
-                    plot_data = history_dividends_yield
-                    plot_data = plot_data[[c for c in plot_data.columns if c in positions.index]].copy()
-                    plot_data = pd.DataFrame(plot_data, index = pd.date_range(plot_data.index[0], plot_data.index[-1], freq="D")).ffill()
+                    plot_data = history_dividends_yield.copy()
+                    # drop all rows where all values are 0
+                    plot_data = plot_data[(plot_data != 0).any(axis=1)]
                     
-                    plot = Plot(figsize=(11, 4.5), grid='monthly')
+                    # extend to full date range
+                    first_date = ftime.get_offset(plot_data.index[0], days=-1)
+                    index = pd.date_range(first_date, plot_data.index[-1], freq="D")
+                    plot_data = pd.DataFrame(plot_data, index = index)
+                    # set first row to all zeroes
+                    plot_data.iloc[0] = 0
+                    # fill forward
+                    plot_data = plot_data.ffill()
+                    
+                    plot = Plot(figsize=(13, 4.5), grid='monthly')
                     plot.plot(plot_data, title='Dividends Yield', ylabel='%')
 
                     r.add_plot_figure(plot.fig(), group=True)
@@ -597,7 +625,7 @@ class Portfolio:
                         r.add_paragraph(title, style=r.get_style('Heading2'))
                         plot_data = pd.DataFrame(plot_data, index = pd.date_range(plot_data.index[0], plot_data.index[-1], freq="D")).ffill()
                         
-                        plot = Plot(figsize=(11, 6.5), grid='monthly')
+                        plot = Plot(figsize=(13, 6.5), grid='monthly')
                         plot.plot(plot_data, title='Capital Gains Yield', ylabel='%')
 
                         r.add_plot_figure(plot.fig())
