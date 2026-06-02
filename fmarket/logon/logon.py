@@ -11,18 +11,19 @@ class Logon:
         plt.style.use('tableau-colorblind10')
         # update Portfolio and get position symbols
         # self.analysis_sell = Analysis_Technical(Portfolio(update=True).get_symbols(), 'sell')
-        self.analysis_sell = Analysis_Technical(Portfolio().get_symbols(), 'sell')
-        self.analysis_buy = Analysis_Technical(sorted(Settings().get_ssel('portfolio/buy').index), 'buy')
-        symbols_all = sorted(set(Portfolio().get_symbols()+sorted(Settings().get_ssel('portfolio/buy').index)))
+        symbols_portfolio = Portfolio().get_symbols()
+        symbols_buy = sorted(Settings().get_ssel('portfolio/buy').index)
+        symbols_all = sorted(set(symbols_portfolio + symbols_buy))
+        
+        # self.analysis_sell = Analysis_Technical(Portfolio().get_symbols(), 'sell')
+        # self.analysis_buy = Analysis_Technical(sorted(Settings().get_ssel('portfolio/buy').index), 'buy')
+        # symbols_all = sorted(set(Portfolio().get_symbols()+sorted(Settings().get_ssel('portfolio/buy').index)))
         self.analysis_all = Analysis_Technical(symbols_all, 'all')
     
     def test(self):
         # result = self.analysis_sell.is_overbuy()
-        # trend = self.analysis_sell.trend()
-        charts = self.analysis_all.test()
-        for symbol, chart in charts.items():
-            Logon.__dataframe_plot(chart, symbol)
-            plt.show()
+        trend = self.analysis_all.test()
+        # self.analysis_all.test()
     
     def graph_sell(self):
         Logon.__adj_close_graph(self.analysis_sell.charts, 'Sell')

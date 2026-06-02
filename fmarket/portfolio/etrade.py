@@ -168,7 +168,8 @@ class Etrade():
     def __get_accounts(self):
         ftime = FTime()
         end = ftime.date_local
-        start = ftime.get_offset(end, months=-((12*3)))
+        start = ftime.get_offset(end, months=-((12*3)-1))
+
         accounts = {}
 
         request_arguments = {

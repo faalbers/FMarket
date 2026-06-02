@@ -172,6 +172,7 @@ class YahooF_Fundamental_Yearly(YahooF):
 
     def get_vault_data(self, data_name, columns, key_values):
         # get columns rename
+        # TODO: Handle no renaming
         column_rename = {x[0]: x[1] for x in columns}
         
         # handle timeseries

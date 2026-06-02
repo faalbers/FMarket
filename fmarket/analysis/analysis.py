@@ -1,3 +1,5 @@
+from matplotlib.pyplot import margins
+
 from fmarket.scrape.scrapers.etrade import etrade
 from ..tickers import Tickers
 from ..database import Database
@@ -10,13 +12,18 @@ import talib as ta
 class Analysis():
     def __init__(self, symbols=[]):
         self.db = Database('analysis')
-        self.tickers = Tickers(symbols)
+        # self.tickers = Tickers(symbols)
+        self.symbols = symbols
 
     def get_data(self, update_cache=False):
+        if update_cache:
+            # cache all symbols first
+            self.__cache_filter_data(self.symbols)
+
+    def get_data_old(self, update_cache=False):
         symbols = self.tickers.get().index
         if update_cache:
             # cache all symbols first
-            self.db.backup()
             self.__cache_filter_data()
             self.__cache_price_growth()
             self.__cache_peers()
@@ -44,6 +51,60 @@ class Analysis():
 
         return filter_data, sectors, industries, industries_sector
 
+    def test(self):
+        print('test')
+        fundamentals = self.get_fundamentals_test()
+
+    def get_fundamentals_test(self):
+        fundamental_data = self.tickers.get_catalog('analysis_fundamental_test')
+        # charts = self.tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+
+        # ['YahooF_Fundamental_Quarterly:ttm', 'YahooF_Fundamental_Quarterly:quarterly', 'YahooF_Fundamental_Yearly:yearly']
+        # print('yearly')
+        # print(fundamental_data['YahooF_Fundamental_Yearly:yearly'])
+        # print('ttm')
+        # print(fundamental_data['YahooF_Fundamental_Quarterly:ttm'])
+
+        # Price to Earnings Ratio (PE) = Price / Earnings Per Share (EPS)
+        # Book Value Per Share (BVPS) = (Shareholders Equity - Preferred Stocks) / Total Outstanding Shares
+        # Price to Book Ratio (PB) = Price / Book Value Per Share (BVPS)
+        
+        for symbol, yearly in fundamental_data['YahooF_Fundamental_Yearly:yearly'].items():
+            # handle company with products and sevices
+            if 'gross_profit' in yearly.columns:
+
+                # list needed
+
+                # if symbol != 'VZ': continue
+                print(symbol)
+
+                yearly = yearly.copy()
+
+                yearly['book_value_per_share'] = yearly['shareholders_equity'] / yearly['total_outstanding_shares']
+
+                print(yearly.map('{:,.2f}'.format))
+
+                continue
+                # yearly = yearly[['operating_income', 'pretax_income', 'ebit', 'noie']].copy()
+                # yearly = yearly.replace(np.nan, 0).copy()
+                
+                # yearly['income_expense'] = yearly['pretax_income'] - yearly['operating_income']
+                # yearly['test'] = yearly['pretax_income'] + yearly['noie']
+                # yearly['non_operating_income'] = yearly['pretax_income'] - yearly['operating_income']
+
+                yearly = yearly.copy()
+
+                test = yearly['total_revenue'] - yearly['cost_of_revenue'] - yearly['gross_profit']
+                test.name = 'gross_profit'
+                test = test.to_frame()
+                test['operating_income'] = yearly['gross_profit'] - yearly['operating_expense'] - yearly['operating_income']
+                test['pretax_income_calc'] = yearly['operating_income'] + (yearly['non_operating_interest_net'] + yearly['other_income_expense'])
+                test['pretax_income'] = yearly['pretax_income']
+                test['pretax_income_diff'] = yearly['pretax_income'] - test['pretax_income_calc']
+                
+                print(yearly.map('{:,.2f}'.format))
+                print(test.map('{:,.2f}'.format))
+    
     def get_chart(self):
         return self.tickers.get_chart()
     
@@ -380,6 +441,289 @@ class Analysis():
         ftime = FTime()
         start = ftime.now_local
 
+        tickers = Tickers(symbols)
+        print('update analysis cache on %s symbols' % tickers.count)
+
+        # handle info
+        print('get data: info')
+        info = tickers.get()
+        info = info.merge(
+            tickers.get_catalog('analysis_info')['YahooF_Info:info'],
+            how='outer', left_index=True, right_index=True)
+        # start filter data
+        filter_data = info.copy(deep=True)
+
+        # HANDLE INFO DATA
+        
+        # fix 'infinity' from info
+        for column in filter_data.columns[filter_data.apply(lambda x: 'Infinity' in x.values)]:
+            filter_data.loc[filter_data[column] == 'Infinity', column] = np.nan
+        
+        # make zero eps_ttm values nan
+        filter_data['eps_ttm'].replace(0, np.nan, inplace=True)
+
+        # market cap name
+        market_cap = filter_data['market_cap'] / 1000000
+        filter_data.loc[market_cap >= 250, 'market_cap_name'] = 'Small'
+        filter_data.loc[market_cap >= 2000, 'market_cap_name'] = 'Mid'
+        filter_data.loc[market_cap >= 10000, 'market_cap_name'] = 'Large'
+        filter_data.loc[market_cap >= 200000, 'market_cap_name'] = 'Mega'
+
+        # handle funds info
+        if 'fund_overview' in filter_data.columns:
+            is_fund_overview = filter_data['fund_overview'].notna()
+            filter_data.loc[is_fund_overview, 'fund_category'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('categoryName'))
+            filter_data.loc[is_fund_overview, 'fund_family'] = filter_data.loc[is_fund_overview, 'fund_overview'].apply(lambda x: x.get('family'))
+            filter_data = filter_data.drop('fund_overview', axis=1)
+
+        # handle earnings_estimate
+        if 'earnings_estimate' in filter_data.columns:
+            is_earnings_estimate = filter_data['earnings_estimate'].notna()
+            periods = {
+                '0q': 'curr_qtr',
+                '+1q': 'next_qtr',
+                '0y': 'curr_year',
+                '+1y': 'next_year',
+            }
+            params = {
+                'avg': 'avg',
+                'low': 'low',
+                'high': 'high',
+                'growth': 'growth',
+                'numberOfAnalysts': 'analysts',
+                'yearAgoEps': 'year_ago',
+            }
+            for symbol, ee in filter_data['earnings_estimate'][is_earnings_estimate].items():
+                for period, period_name in periods.items():
+                    if not period in ee: continue
+                    for param, param_name in params.items():
+                        if param in ee[period]:
+                            if param == 'growth':
+                                filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param] * 100
+                            else:
+                                filter_data.loc[symbol, 'eps_est_%s_%s' % (period_name, param_name)] = ee[period][param]
+            filter_data = filter_data.drop('earnings_estimate', axis=1)
+
+        # HANDLE ETRADE DATA
+        etrade = tickers.get_catalog('analysis_etrade')['Etrade_Quote:quote']
+        etrade = etrade.replace(0, np.nan)
+        filter_data = filter_data.merge(etrade, how='left', left_index=True, right_index=True)
+
+        eps_ttm_replace = filter_data['eps_ttm'].isna() & filter_data['eps_ttm_etrade'].notna()
+        filter_data.loc[eps_ttm_replace, 'eps_ttm'] = filter_data.loc[eps_ttm_replace, 'eps_ttm_etrade']
+        
+        pe_ttm_replace = filter_data['pe_ttm'].isna() & filter_data['pe_ttm_etrade'].notna()
+        filter_data.loc[pe_ttm_replace, 'pe_ttm'] = filter_data.loc[pe_ttm_replace, 'pe_ttm_etrade']
+
+        filter_data.drop(['pe_ttm_etrade', 'eps_ttm_etrade'], axis=1, inplace=True)
+
+        # infer all object columns
+        filter_data = filter_data.infer_objects().copy()
+
+        # HANDLE CHART DATA
+        print(str(ftime.now_local - start).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('get data: chart')
+        charts = tickers.get_catalog('analysis_chart')['YahooF_Chart:chart']
+
+        # get history years
+        now = ftime.now_naive
+        for symbol, chart in charts.items():
+            if not 'adj_close' in chart.columns: continue
+            filter_data.loc[symbol, 'price'] = chart['adj_close'].iloc[-1]
+            filter_data.loc[symbol, 'price_years'] = (chart.index[-1] - chart.index[0]).days / 365
+            filter_data.loc[symbol, 'price_days_since'] = (now - chart.index[-1]).days
+
+        # HANDLE FUNDAMENTALS DATA
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('get data: fundamentals')
+        fundamental_data = tickers.get_catalog('analysis_fundamental_test')
+
+        # get fundamentals since times
+        print(str(ftime.now_local - start_chunk).split('days')[-1])
+        start_chunk = ftime.now_local
+        print('calculate data: fundamentals')
+        
+        fundamentals_result = self.__get_fundamentals_new(fundamental_data)
+        filter_data = filter_data.merge(fundamentals_result, how='left', left_index=True, right_index=True)
+
+
+        print(filter_data.T)
+
+    @staticmethod
+    def __get_fundamentals_new(fundamental_data):
+        # growth params
+        growth_params = [
+            'gross_profit_margin',
+            'operating_profit_margin',
+            'net_profit_margin',
+        ]
+
+        # get current time 
+        now_utc = FTime().now_naive
+
+        # gather symbols
+        symbols = set(fundamental_data['YahooF_Fundamental_Yearly:yearly'])
+        symbols.update(fundamental_data['YahooF_Fundamental_Quarterly:quarterly'])
+        symbols.update(fundamental_data['YahooF_Fundamental_Quarterly:ttm'].index)
+        symbols = sorted(symbols)
+
+        # initialize retrieval data
+        data = pd.DataFrame(index=symbols)
+
+        def get_parameters(df):
+            params = pd.DataFrame(index=df.index)
+
+            # Income Statement
+            params['total_revenue'] = np.nan
+            if 'total_revenue' in df.columns:
+                params['total_revenue'] = df['total_revenue'].replace(0, np.nan)
+            
+            params['gross_profit'] = np.nan
+            if 'gross_profit' in df.columns:
+                params['gross_profit'] = df['gross_profit']
+            
+            params['operating_income'] = np.nan
+            if 'operating_income' in df.columns:
+                params['operating_income'] = df['operating_income']
+            
+            params['net_income_stockholders'] = np.nan
+            if 'net_income_stockholders' in df.columns:
+                params['net_income_stockholders'] = df['net_income_stockholders']
+                if 'net_income' in df.columns:
+                    params['net_income_stockholders'] = params['net_income_stockholders'].fillna(df['net_income'])
+
+            params['net_income'] = np.nan
+            if 'net_income' in df.columns:
+                params['net_income'] = df['net_income'].replace(0, np.nan)
+
+            params['interest_expense'] = np.nan
+            if 'interest_expense' in df.columns:
+                params['interest_expense'] = df['interest_expense'].abs().replace(0, np.nan)
+            
+            # Balance Sheet
+            params['current_liabilities'] = np.nan
+            if 'current_liabilities' in df.columns:
+                params['current_liabilities'] = df['current_liabilities'].replace(0, np.nan)
+
+            params['current_assets'] = np.nan
+            if 'current_assets' in df.columns:
+                params['current_assets'] = df['current_assets']
+
+            params['inventory'] = np.nan
+            if 'inventory' in df.columns:
+                params['inventory'] = df['inventory'].fillna(0)
+
+            params['total_debt'] = np.nan
+            if 'total_debt' in df.columns:
+                params['total_debt'] = df['total_debt']
+
+            params['equity'] = np.nan
+            if 'common_stock_equity' in df.columns:
+                params['equity'] = df['common_stock_equity']
+                if 'shareholders_equity' in df.columns:
+                    params['equity'] = params['equity'].fillna(df['shareholders_equity'])
+                params['equity'] = params['equity'].replace(0, np.nan)
+
+            # Cash Flow Statement
+            params['operating_cash_flow'] = np.nan
+            if 'operating_cash_flow' in df.columns:
+                params['operating_cash_flow'] = df['operating_cash_flow']
+
+            params['free_cash_flow'] = np.nan
+            if 'free_cash_flow' in df.columns:
+                params['free_cash_flow'] = df['free_cash_flow']
+
+            return params
+
+        def get_metrics(period_data):
+            # get params for metrics calculation
+            params = get_parameters(period_data)
+
+            # initialize metrics
+            metrics = pd.DataFrame(index=params.index)
+
+            # profitability
+            metrics['gross_profit_margin'] = params['gross_profit'] / params['total_revenue']
+            metrics['operating_profit_margin'] = params['operating_income'] / params['total_revenue']
+            metrics['net_profit_margin'] = params['net_income_stockholders'] / params['total_revenue']
+
+            # liquidity
+            metrics['current_ratio'] = params['current_assets'] / params['current_liabilities']
+            metrics['quick_ratio'] = (params['current_assets'] - params['inventory']) / params['current_liabilities']
+
+            # leverage
+            metrics['debt_to_equity'] = params['total_debt'] / params['equity']
+            metrics['interest_coverage'] = params['total_debt'] / params['equity']
+
+            # earnings quality
+            metrics['cash_flow_to_net_income'] = params['operating_cash_flow'] / params['net_income']
+            metrics['cash_flow_to_net_income'] = metrics['cash_flow_to_net_income'].where(params['net_income'] > 0, np.nan)
+            metrics['free_cash_flow_margin'] = params['free_cash_flow'] / params['total_revenue']
+
+            # efficiency
+
+            return metrics
+
+        def get_days_since(period_data):
+            if 'total_revenue' in period_data.columns:
+                total_revenue_period = period_data['total_revenue'].dropna()
+                if not total_revenue_period.empty:
+                    return (now_utc - total_revenue_period.index[-1]).days
+                else:
+                    return np.nan
+            else:
+                return np.nan
+
+        # get yearly fundamentals
+        for symbol, period_data in fundamental_data['YahooF_Fundamental_Yearly:yearly'].items():
+            # add period since
+            data.loc[symbol, 'fundamental_yearly_since'] = get_days_since(period_data) / 365
+
+            # get metrics``
+            metrics = get_metrics(period_data)
+
+            # add metrics with growth
+            growth = metrics[[c for c in metrics.columns if c in growth_params]]
+            growth = utils.get_growth(growth, 'yearly')
+            data.loc[symbol, growth.index] = growth.values
+
+            # ad metrics with no growth
+            metrics = metrics.iloc[-1][[c for c in metrics.columns if c not in growth_params]].add_suffix('_yearly')
+            data.loc[symbol, metrics.index] = metrics.values
+
+        # get quarterly fundamentals
+        for symbol, period_data in fundamental_data['YahooF_Fundamental_Quarterly:quarterly'].items():
+            # add period since
+            data.loc[symbol, 'fundamental_quarterly_since'] = get_days_since(period_data) / (365/4)
+            
+            # get metrics``
+            metrics = get_metrics(period_data)
+
+            # add metrics with growth
+            growth = metrics[[c for c in metrics.columns if c in growth_params]]
+            growth = utils.get_growth(growth, 'quarterly')
+            data.loc[symbol, growth.index] = growth.values
+
+            # ad metrics with no growth
+            metrics = metrics.iloc[-1][[c for c in metrics.columns if c not in growth_params]].add_suffix('_quarterly')
+            data.loc[symbol, metrics.index] = metrics.values
+
+        # get ttm fundamentals
+        ttm_data = fundamental_data['YahooF_Fundamental_Quarterly:ttm']
+        metrics = get_metrics(ttm_data).add_suffix('_ttm')
+        data = data.merge(metrics, how='outer', left_index=True, right_index=True)
+
+        # drop all rows where all values are nan
+        data.dropna(axis=1, how='all', inplace=True)
+        
+        return data
+    
+    def __cache_filter_data_old(self, symbols=[]):
+        ftime = FTime()
+        start = ftime.now_local
+
         # pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
@@ -629,7 +973,7 @@ class Analysis():
 
         print('total time: ',str(ftime.now_local - start).split('days')[-1])
 
-    def __cache_filter_data_old(self, symbols=[]):
+    def __cache_filter_data_older(self, symbols=[]):
         pd.options.display.float_format = '{:.3f}'.format
         if len(symbols) == 0:
             tickers = self.tickers
@@ -1213,12 +1557,14 @@ class Analysis():
             if total_revenue_period.empty: continue
             years_since = (now_utc - total_revenue_period.index[-1]).days / 365.0
             data.loc[symbol, 'total_revenue_yearly_since'] = years_since
-        
+
         for symbol, period_data in fundamental_data['YahooF_Fundamental_Quarterly:quarterly'].items():
             if 'total_revenue' not in period_data.columns: continue
             total_revenue_period = period_data['total_revenue'].dropna()
             if total_revenue_period.empty: continue
             quarters_since = (now_utc - total_revenue_period.index[-1]).days / (365.0 / 4.0)
             data.loc[symbol, 'total_revenue_quarterly_since'] = quarters_since
-        
+
         return data
+
+    

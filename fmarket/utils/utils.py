@@ -12,6 +12,56 @@ def get_average(df, median_threshold=0.1):
     average.loc[average['deviation'] <= median_threshold, 'average'] = average['mean']
     return average['average']
 
+def get_growth(df, period):
+    growth_data = pd.Series()
+    for column in df.columns:
+        if column in df.columns:
+            # get valid values
+            values = df[column].sort_index()
+            values_notna = values.dropna()
+            if values_notna.shape[0] == 0: continue
+            first_index = values_notna.index[0]
+            last_index = values_notna.index[-1]
+            values = values[first_index:last_index].interpolate(method='linear')
+            if values.shape[0] == 0: continue
+            date = str(last_index.date())
+            
+            # calculate cagr
+            start = values.iloc[0]
+            end = values.iloc[-1]
+            period_change = (end - start) / values.shape[0]
+            cagr = period_change / abs(start)
+
+            growth_data['%s_%s' % (column, period)] = end
+            # growth_data['%s_%s_date' % (column, period)] = date
+            growth_data['%s_%s_cagr_%%' % (column, period)] = cagr * 100.0
+           
+            # calculate polyfit
+            if values.shape[0] >= 2:
+                # get growth on polyfit
+                values_x = range(values.shape[0])
+                coeffs = np.polyfit(values_x, values.values, 1)
+                trend_amount = coeffs[0]
+                divider = abs(start)
+                growth = trend_amount / divider
+                growth_data['%s_%s_growth_%%' % (column, period)] = growth * 100.0
+
+                # get volatility
+                trend_line = np.polyval(coeffs, values_x)
+                trend_line_range = abs(trend_line[-1] - trend_line[0])
+                values_flattened = values.values - trend_line
+                volatility = np.std(values_flattened) / trend_line_range
+                growth_data['%s_%s_growth_volatility_%%' % (column, period)] = volatility * 100.0
+                # plot_data = values.to_frame()
+                # plot_data['trend'] = trend_line
+                # plot = Plot(grid='monthly')
+                # plot.plot(plot_data)
+                # plot.show()
+            else:
+                growth_data['%s_%s_growth' % (column, period)] = cagr * 100.0
+                growth_data['%s_%s_growth_volatility' % (column, period)] = 0.0
+    return growth_data
+
 def get_trends(df, check_gaps=True):
     df = df.dropna(how='all', axis=0)
 
@@ -70,3 +120,4 @@ def get_trends(df, check_gaps=True):
                 trends.loc[column, 'volatility'] = (residual_std / np.abs(trend_mean)) * 100.0
 
     return trends
+

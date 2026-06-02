@@ -140,6 +140,87 @@ class Catalog():
                 ],
             },
         },
+        'analysis_fundamental_test': {
+            YahooF_Fundamental_Yearly: {
+                'yearly': [
+                    # Income Statement
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncomeCommonStockholders', 'net_income_stockholders'],
+                    ['NetIncome', 'net_income'],
+                    ['TotalEquityGrossMinorityInterest', 'total_equity'],
+                    ['InterestExpense', 'interest_expense'],
+                    ['DilutedAverageShares', 'diluted_average_shares'],
+                    ['DilutedEPS', 'diluted_eps'],
+                    # balance sheet
+                    ['TotalAssets', 'total_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['Inventory', 'inventory'],
+                    ['CurrentAssets', 'current_assets'],
+                    ['OrdinarySharesNumber', 'total_shares_outstanding'],
+                    ['StockholdersEquity', 'shareholders_equity'],
+                    ['TotalDebt', 'total_debt'],
+                    ['CommonStockEquity', 'common_stock_equity'],
+                    # cash flow statement
+                    ['OperatingCashFlow', 'operating_cash_flow'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                ],
+            },
+            YahooF_Fundamental_Quarterly: {
+                'ttm': [
+                    # Income Statement
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncomeCommonStockholders', 'net_income_stockholders'],
+                    ['NetIncome', 'net_income'],
+                    ['TotalEquityGrossMinorityInterest', 'total_equity'],
+                    ['InterestExpense', 'interest_expense'],
+                    ['DilutedAverageShares', 'diluted_average_shares'],
+                    ['DilutedEPS', 'diluted_eps'],
+                    # balance sheet
+                    ['TotalAssets', 'total_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['Inventory', 'inventory'],
+                    ['CurrentAssets', 'current_assets'],
+                    ['OrdinarySharesNumber', 'total_shares_outstanding'],
+                    ['StockholdersEquity', 'shareholders_equity'],
+                    ['TotalDebt', 'total_debt'],
+                    ['CommonStockEquity', 'common_stock_equity'],
+                    # cash flow statement
+                    ['OperatingCashFlow', 'operating_cash_flow'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                ],
+                'quarterly': [
+                    # Income Statement
+                    ['TotalRevenue', 'total_revenue'],
+                    ['GrossProfit', 'gross_profit'],
+                    ['OperatingIncome', 'operating_income'],
+                    ['PretaxIncome', 'pretax_income'],
+                    ['NetIncomeCommonStockholders', 'net_income_stockholders'],
+                    ['NetIncome', 'net_income'],
+                    ['TotalEquityGrossMinorityInterest', 'total_equity'],
+                    ['InterestExpense', 'interest_expense'],
+                    ['DilutedAverageShares', 'diluted_average_shares'],
+                    ['DilutedEPS', 'diluted_eps'],
+                    # balance sheet
+                    ['TotalAssets', 'total_assets'],
+                    ['CurrentLiabilities', 'current_liabilities'],
+                    ['Inventory', 'inventory'],
+                    ['CurrentAssets', 'current_assets'],
+                    ['OrdinarySharesNumber', 'total_shares_outstanding'],
+                    ['StockholdersEquity', 'shareholders_equity'],
+                    ['TotalDebt', 'total_debt'],
+                    ['CommonStockEquity', 'common_stock_equity'],
+                    # cash flow statement
+                    ['OperatingCashFlow', 'operating_cash_flow'],
+                    ['FreeCashFlow', 'free_cash_flow'],
+                ],
+            },
+        },
         'analysis_fundamental': {
             YahooF_Fundamental_Quarterly: {
                 'ttm': [

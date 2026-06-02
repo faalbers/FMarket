@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from ..database import Database
-from ..utils import FTime
+from ..utils import FTime, storage
 
 class Account:
     def __init__(self, id, description=None, data=None):
@@ -137,10 +137,20 @@ class Account:
                 self.__transactions.loc[quantity_out.index, 'security_symbol'] = symbol
 
     def __check_data_corruption(self):
-        if self.id != '151827600': return
+        transactions_corrupt = []
+
         def check_symbol_transactions(group):
             if group.shape[0] > 1:
-                print('Corrupted transactions in account %s' % self.id)
-                print(self.__transactions.loc[group.index])
-                raise ValueError('Corrupted transactions')
+                transactions_corrupt = set(group.index.tolist())
+                remove_ids = set()
+                for key_name in ['FRANK', 'AMY']:
+                    accounts = storage.load('etrade_accounts_%s' % key_name)
+                    if isinstance(accounts, type(None)): continue
+                    if self.id not in accounts.keys(): continue
+                    account = accounts[self.id]
+                    transactions = account['transactions']
+                    remove_ids.update(transactions_corrupt.difference(set(transactions)))
+                if len(remove_ids) > 0:
+                    print('Corrupted transactions in account: %s: transactions: %s' % (self.id, remove_ids))
+                    raise ValueError('Corrupted transactions')
         self.__transactions.groupby(['security_symbol', 'description', 'amount']).apply(check_symbol_transactions, include_groups=False)

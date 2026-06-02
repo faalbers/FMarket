@@ -186,6 +186,7 @@ class Portfolio:
             'dividend_yield': 'yearly_yield',
             'yearly': 'yearly',
             'quarterly': 'quarterly',
+            'monthly': 'monthly',
         }
         
         # params that will be compared with history charts
@@ -421,6 +422,7 @@ class Portfolio:
                     dividends = dividends.dropna(how='all')
                     dividends['yearly'] = dividends['dividend_rate'] * positions.loc[dividends.index, 'quantity']
                     dividends['quarterly'] = dividends['yearly'] / 4
+                    dividends['monthly'] = dividends['yearly'] / 12
                     # keep columns and rename them
                     dividends_rename = {c:r for c, r in dividends_params.items() if c in dividends.columns}
                     dividends = dividends[list(dividends_rename)]
